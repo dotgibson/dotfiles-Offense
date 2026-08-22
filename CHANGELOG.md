@@ -205,6 +205,17 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **ROADtools is now installed by `--install`, on every route** (#231). Entra/M365
+  tooling in this layer was entirely Windows-side (AADInternals, TeamFiltration,
+  MSOLSpray); the corpus even cited dirkjanm's ROADtools as `device-code-phish`'s
+  `source:` while handing you Windows-only PowerShell. `bootstrap.sh` grew an
+  `_install_apt_absent` step — a THIRD install category for tools no route can
+  apt-install — that pipx-installs `roadrecon` and `roadtx` on the Kali path too, not
+  just the portable subset, so the Entra corpus entries finally run from the attacker
+  box. `hacktheplanet`'s M365 fold documents the Linux commands and
+  `install/offensive-packages.txt` carries the annotation. The corpus entry's own
+  `platform:`/`source:` fix lands upstream in dotgibson/htpx.
+
 - **`corpus commands resolve` — a gate for the question nothing asked** (#208). Two entries
   in `coerce-petitpotam` once invoked `impacket-petitpotam` and `dfscoerce`. Neither is a
   real command, both shipped in a released corpus, and a **human reading the file** found
