@@ -75,6 +75,17 @@ release line.
   third-party repo, Kali alone, a non-Kali Debian box (fallback unchanged), a release line
   with no `o=`, and empty policy output.
 
+- **The packages workflow contradicted the manifest about `rustscan`.**
+  `.github/workflows/packages.yml`'s `#260` paragraph explains why the job emits
+  `::warning::` annotations, citing `rustscan` as an example of "an apt name that resolves
+  in NO Kali component". That was true when written, but #315 restored `rustscan` to a
+  real apt line after it migrated to kali-rolling on 2026-08-31 — so the repo shipped a
+  workflow comment calling a name unresolvable while the manifest beside it installs that
+  same name. The paragraph is now marked as the history of why annotations exist, with the
+  current status of both examples it cites (`rustscan` resolves again; `snmp-check` was a
+  package/binary split all along — the apt name is `snmpcheck`). Comment only; no job
+  behaviour changes.
+
 - **`bootstrap.sh`'s `PATH` is not the shell's `PATH` — adopt `blib_user_bindirs_on_path`**
   (dotgibson/dotfiles-core#748). Replaces the hand-rolled `export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"` prelude, which also moves it below the `source core/lib/bootstrap-lib.sh` line. `~/.local/bin`, `~/.cargo/bin` and `$GOBIN` reach
   `PATH` only through the zsh layer, i.e. only inside a Core shell — which does not exist
