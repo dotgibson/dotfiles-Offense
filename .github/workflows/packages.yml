@@ -29,6 +29,10 @@
 # on the PR's Checks and Files tabs without making the job blocking, which keeps the
 # rolling-distro argument above intact.
 #
+# That paragraph is the HISTORY of why annotations exist, not a current status: `rustscan`
+# is a resolving apt line again (2.4.1-0kali1 migrated to kali-rolling 2026-08-31), and
+# `snmp-check` was a package/binary split all along (the apt name is `snmpcheck`).
+#
 # The logic lives in test/check-packages.sh so it is runnable by hand too:
 #   make packages-check
 # ──────────────────────────────────────────────────────────────────────────────

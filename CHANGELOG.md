@@ -75,6 +75,27 @@ release line.
   third-party repo, Kali alone, a non-Kali Debian box (fallback unchanged), a release line
   with no `o=`, and empty policy output.
 
+- **`rustscan` and `katana` are apt lines again — both `→ UPSTREAM` pointers were wrong**
+  (dotgibson/dotfiles-Offense#301 finding 6, dotgibson/dotfiles-Offense#299 finding 1).
+  Both pointers claimed the packaging "sits in kali-DEV … and has not migrated — so apt
+  cannot supply it on any box today". Both migrated to kali-rolling on **2026-08-31**
+  (`rustscan` 2.4.1-0kali1, `katana` 1.7.0-0kali1), re-verified against `pkg.kali.org`.
+  The `rustscan` note was wrong a second way that mattered more: it gave upstream as
+  **4.7.4**, which was not stale but invented — GitHub tags, the GitHub release API and
+  crates.io all put head at **2.4.1 (23 Feb 2025)**, and there has never been a 3.x or 4.x.
+  apt is therefore *at* upstream head, so the cargo pointer had nothing to add even before
+  the migration.
+  **This is why #301's finding 6 was not applied.** It asked for an
+  `# UPSTREAM: cargo install rustscan — not in apt on any box today` line above
+  `hacktheplanet`'s invocation; that line would have written a fresh error into a doc,
+  which is the failure class the review exists to catch. `offensive/hacktheplanet` is
+  unchanged and its bare `rustscan` invocation was correct all along.
+  `redup`'s katana comments said "go-only today", now false on Kali; the writable-binary
+  guard added for #299 is what actually catches the apt-owned build, and it was already
+  in place, so no behaviour changed (the `offensive.zsh` diff is comment-only). The
+  historical `#260` paragraph in `.github/workflows/packages.yml` is marked as history so
+  it is not read as `rustscan`'s current status.
+
 - **`bootstrap.sh`'s `PATH` is not the shell's `PATH` — adopt `blib_user_bindirs_on_path`**
   (dotgibson/dotfiles-core#748). Replaces the hand-rolled `export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"` prelude, which also moves it below the `source core/lib/bootstrap-lib.sh` line. `~/.local/bin`, `~/.cargo/bin` and `$GOBIN` reach
   `PATH` only through the zsh layer, i.e. only inside a Core shell — which does not exist

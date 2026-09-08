@@ -15,14 +15,25 @@
 # ── Network / Active Directory ────────────────────────────────────────────────
 netexec              # nxc — successor to CrackMapExec (CME archived 2023)
 nmap
-# rustscan          → UPSTREAM (cargo install rustscan): fast port sweep that hands off to
-#                     nmap -sC -sV — hacktheplanet's `rustscan -a <ip> --ulimit 5000 -- -sC -sV`.
-#                     NOT in kali-rolling: absent from main, contrib and non-free alike. Kali's
-#                     packaging sits in kali-DEV at 2.4.1-0kali1 and has not migrated, while
-#                     upstream is 4.7.4 — so apt cannot supply it on any box today. The line that
-#                     was here also claimed it "ships in kali-linux-default"; that metapackage's
-#                     Depends does not name it, so both halves were wrong. Re-check
-#                     pkg.kali.org/pkg/rustscan and restore the apt line if 2.4.1 migrates.
+rustscan             # fast port sweep that hands off to nmap -sC -sV — hacktheplanet's `rustscan -a <ip> --ulimit 5000 -- -sC -sV`
+#                    # RESTORED TO AN APT LINE, and the `→ UPSTREAM (cargo install rustscan)` pointer
+#                    # that stood here was wrong in BOTH halves.
+#                    # (a) It said rustscan is "absent from main, contrib and non-free alike" with
+#                    # packaging "stuck in kali-DEV". 2.4.1-0kali1 MIGRATED to kali-rolling on
+#                    # 2026-08-31, so apt supplies it — re-verified at pkg.kali.org/pkg/rustscan.
+#                    # (b) It said "upstream is 4.7.4". That was not stale, it was INVENTED: there
+#                    # has never been a 3.x or 4.x. GitHub tags, the GitHub release API and crates.io
+#                    # all put head at 2.4.1 (23 Feb 2025). apt is AT upstream head, not four majors
+#                    # behind it, so a cargo pointer had nothing to add even before the migration.
+#                    # THIS IS WHY #301's finding 6 WAS NOT APPLIED. It asked for an
+#                    # `# UPSTREAM: cargo install rustscan — not in apt on any box today` line above
+#                    # hacktheplanet's invocation; that line would have introduced a fresh error into
+#                    # a doc, which is the failure class the review exists to catch. The invocation
+#                    # stays bare and correct.
+#                    # It is still NOT in kali-linux-default — that metapackage's Depends does not
+#                    # name it — which is exactly why it needs a line here.
+#                    # NOT a redup fast-mover: apt owns it and upstream has cut nothing since Feb
+#                    # 2025, so `up` is the route.
 responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 #                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
@@ -189,23 +200,25 @@ httpx-toolkit        # ProjectDiscovery httpx. ⚠ NEVER `apt install httpx` —
 #                    # `httpx-toolkit` is the only correct entry here.
 #                    # CURRENCY, previously unstated: apt runs about one minor behind (1.9.x against
 #                    # upstream's 1.10.x). Not a redup candidate — apt owns it, so `up` is the route.
-# katana            → UPSTREAM (Go): not installable from apt today —
-#                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
-#                     NOT in kali-rolling. "not in apt" is what this line used to say and it is
-#                     now too flat: Kali's packaging sits in kali-DEV at 1.7.0-0kali1 (initial
-#                     packaging committed 2026-08-27) and has not migrated — so apt cannot supply
-#                     it on any box today, the same status rustscan carries above. Re-check
-#                     pkg.kali.org/pkg/katana and restore the apt line if 1.7.0 migrates.
-#                     WATCH WHAT ELSE A MIGRATION WOULD BRING. apt owning the binary is exactly
-#                     when Kali patches a self-updater out — it already did so to nuclei's
-#                     `-update`, which is why redup's nuclei engine step is conditional. The
-#                     kali-dev packaging carries no debian/patches directory yet, so `-update`
-#                     survives there for now; redup's katana step PROBES for the flag anyway, so
-#                     a migrated-and-patched katana degrades to a skip instead of a tallied
-#                     failure on every run. Six releases in nine months and it ships its own
-#                     `-update` today, so redup drives the refresh — NOT the go_fast_movers
-#                     loop, whose bare `go install` would build it differently from the
-#                     documented CGO build.
+katana               # ProjectDiscovery crawler — the URL/JS discovery step in hacktheplanet's web folds
+#                    # RESTORED TO AN APT LINE, on the same re-check that restored rustscan above:
+#                    # 1.7.0-0kali1 MIGRATED to kali-rolling on 2026-08-31, the same migration
+#                    # window. The `→ UPSTREAM (Go)` pointer's "apt cannot supply it on any box
+#                    # today" no longer holds — re-verified at pkg.kali.org/pkg/katana. (Its
+#                    # cross-reference to rustscan's status was the accurate part: both were stuck
+#                    # in kali-dev, and both migrated together.)
+#                    # THE MIGRATION IS THE THING THE OLD NOTE SAID TO WATCH FOR. apt owning the
+#                    # binary is exactly when Kali patches a self-updater out — it already did so to
+#                    # nuclei's `-update`, which is why redup's nuclei engine step is conditional.
+#                    # redup's katana step was hardened for precisely this in #307: it probes for the
+#                    # flag AND checks the binary is writable, so an apt-owned katana degrades to a
+#                    # NEUTRAL SKIP rather than printing a red failure on every run of a healthy box.
+#                    # So `up` is the refresh route on Kali now; redup still drives it on the
+#                    # non-Kali go-install route.
+#                    # Still NOT a go_fast_movers entry: that loop's bare `go install` would build it
+#                    # differently from the documented
+#                    #   CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
+#                    # which stays the route on any box the apt package does not reach.
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────
