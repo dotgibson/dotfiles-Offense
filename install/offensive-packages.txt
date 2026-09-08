@@ -34,6 +34,13 @@ rustscan             # fast port sweep that hands off to nmap -sC -sV — hackth
 #                    # name it — which is exactly why it needs a line here.
 #                    # NOT a redup fast-mover: apt owns it and upstream has cut nothing since Feb
 #                    # 2025, so `up` is the route.
+#                    # ⚠ ROLLING ONLY, FOR NOW. A box tracking kali-last-snapshot does not have the
+#                    # 2026-08-31 migration yet, so bootstrap prints "skipped (unavailable on this
+#                    # box?)" for this name until the snapshot rolls forward — verified on a
+#                    # 2026.2 last-snapshot box. Harmless (apt_install degrades per-package) and
+#                    # self-correcting; it is also why test/check-packages.sh flags this name
+#                    # there and the packages workflow, which runs in a kali-rolling container,
+#                    # does not. Same note on katana below, which migrated the same day.
 responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 #                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
@@ -218,7 +225,11 @@ katana               # ProjectDiscovery crawler — the URL/JS discovery step in
 #                    # Still NOT a go_fast_movers entry: that loop's bare `go install` would build it
 #                    # differently from the documented
 #                    #   CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
-#                    # which stays the route on any box the apt package does not reach.
+#                    # which stays the route on any box the apt package does not reach — and a
+#                    # kali-last-snapshot box is exactly such a box until the snapshot picks up the
+#                    # 2026-08-31 migration. See the ⚠ on rustscan above: same lag, same harmless
+#                    # "skipped (unavailable on this box?)", same reason check-packages.sh flags it
+#                    # locally while the kali-rolling workflow passes.
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────
