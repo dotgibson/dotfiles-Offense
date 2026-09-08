@@ -67,8 +67,17 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > ten are the C2-egress and Impact detections named above. The last two —
 > `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662**, which is
 > this file's own criterion for projecting, and yet project nowhere. That pair is a
-> real gap rather than part of the split, and it mirrors exactly the two unprojected
-> red entries `hacktheplanet` now flags. Read them with `htpx` until it is closed.
+> real gap rather than part of the split, and here it is the WHOLE detection that is
+> missing rather than just the projection: the only `4662` material below is DCSync's
+> replication mask (`0x100`), which is the opposite shape from a collection fan-out
+> (`dc(Object_Name)` across hundreds of objects in one window), and **1644** — the
+> expensive/inefficient-LDAP-search event both entries lean on to see the query text —
+> appears nowhere in this file at all.
+>
+> Do NOT read that as mirroring the red side: `hacktheplanet` flags only **one** gap,
+> `ldap-recon`. It covers `bloodhound-collect`'s Linux collector more richly than the
+> entry does and is missing only that entry's `SharpHound.exe` line. Read all three
+> with `htpx` until this is closed.
 >
 > These counts are hand-maintained and go stale on every `companion-sync`. No htpx version
 > is named here on purpose — one stamped into prose rots the way these counts did;
