@@ -15,14 +15,30 @@
 # ── Network / Active Directory ────────────────────────────────────────────────
 netexec              # nxc — successor to CrackMapExec (CME archived 2023)
 nmap
-# rustscan          → UPSTREAM (cargo install rustscan): fast port sweep that hands off to
-#                     nmap -sC -sV — hacktheplanet's `rustscan -a <ip> --ulimit 5000 -- -sC -sV`.
-#                     NOT in kali-rolling: absent from main, contrib and non-free alike. Kali's
-#                     packaging sits in kali-DEV at 2.4.1-0kali1 and has not migrated, while
-#                     upstream is 4.7.4 — so apt cannot supply it on any box today. The line that
-#                     was here also claimed it "ships in kali-linux-default"; that metapackage's
-#                     Depends does not name it, so both halves were wrong. Re-check
-#                     pkg.kali.org/pkg/rustscan and restore the apt line if 2.4.1 migrates.
+rustscan             # fast port sweep that hands off to nmap -sC -sV — hacktheplanet's
+#                    # `rustscan -a <ip> --ulimit 5000 -- -sC -sV`.
+#                    # APT AGAIN, and the standing re-check instruction this line used to carry is
+#                    # what fired: rustscan 2.4.1-0kali1 MIGRATED to kali-rolling 2026-08-31, so
+#                    # the `→ UPSTREAM (cargo install rustscan)` pointer that was here is retired.
+#                    # ⚠ THE VERSION GAP THAT NOTE ASSERTED NEVER EXISTED. It said "upstream is
+#                    # 4.7.4", which was WRONG rather than merely stale — three independent primary
+#                    # sources put head at 2.4.1 (2025-02-23): the GitHub releases tag, crates.io's
+#                    # max_version, and `version` in master's Cargo.toml. So apt is not three majors
+#                    # behind; it is AT upstream head, and the objection to restoring this line
+#                    # dissolved rather than being outweighed. Recorded because an invented version
+#                    # number is the one error class this file cannot absorb: every other note here
+#                    # is only as trustworthy as the sourcing habit that catches this one.
+#                    # The older correction still stands and is why a line is needed at all: it is
+#                    # NOT in kali-linux-default — kali-linux-EVERYTHING is the only metapackage
+#                    # whose Depends names it, the evilginx2 criterion, so a normal box has no
+#                    # rustscan without this line.
+#                    # ⚠ SUITE DRIFT, expected and harmless: this and katana below migrated on
+#                    # 2026-08-31, so a box tracking `kali-last-snapshot` rather than kali-rolling
+#                    # cannot see either name until the next snapshot is cut, and bootstrap's
+#                    # apt_install will print "skipped (unavailable on this box?)" for them.
+#                    # test/check-packages.sh calls this out as the fourth of its four cases; the
+#                    # authoritative run is .github/workflows/packages.yml, in a kali-rolling
+#                    # container. Do NOT "fix" a red local run by removing these lines.
 responder
 mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's DNS, coerces Windows to auth over WPAD/HTTP. The relay TRIGGER that still fires when LLMNR/NBT-NS poisoning is off but IPv6 is on by default (it is). ⚠ it rewrites DNS for the WHOLE segment while it runs — loud, disruptive, and an ROE conversation before you reach for it
 #                    # NOTE: upstream FROZEN (last commit Feb 2022; Kali has shipped 0.3.0 since May 2024).
@@ -47,7 +63,15 @@ mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's D
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
-evil-winrm
+evil-winrm           # ⚠ CURRENCY, track-don't-act: kali is 3.9-0kali2 while upstream cut v4.1 on
+#                    # 2026-09-03 (there is no v4.0 release — the tags jump 3.9 → 4.1). Recorded
+#                    # rather than acted on: v4.1 renames no flags and breaks no invocation, so
+#                    # nothing in hacktheplanet's WinRM fold goes stale, and a major-looking bump
+#                    # that changes no interface is not a reason to leave apt.
+#                    # TWO of its fixes are felt mid-op if you hit them — a keepalive so Windows
+#                    # stops dropping idle shells, and a path-traversal fix in `download`. Neither
+#                    # is a reason to hand-build; both are a reason to expect the apt build to drop
+#                    # an idle shell, which reads as a network problem and isn't one.
 certipy-ad           # AD CS abuse (ESC1–ESC17: ESC13/15/16 landed in v5.0, ESC17 in v5.1.0)
 python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged),
 #                    # but the BINARY is bare `ldapdomaindump` — which is also the name bootstrap's
@@ -97,10 +121,37 @@ freerdp-x11          # xfreerdp — the RDP client for the 3389 connect line. NA
 #                     this file for it.
 
 # ── BloodHound CE + collectors ────────────────────────────────────────────────
-# BloodHound CE itself is the Postgres-backed web app — stand it up with SpecterOps'
-# official `bloodhound-cli` (Go binary, curl the release / `go install`; NOT apt), which
-# now owns the compose file under an XDG config dir. The COLLECTORS are what you install
-# on the box:
+# BloodHound CE itself is the Postgres-backed web app. The COLLECTORS below are what you
+# install on the box; the SERVER now has an apt line of its own:
+bloodhound           # ⚠ THE `NOT apt` THIS BLOCK USED TO ASSERT IS FALSE. The header here said CE
+#                    # must be stood up with SpecterOps' `bloodhound-cli` (Go binary, curl the
+#                    # release / `go install`; NOT apt). kali-rolling carries `bloodhound` at
+#                    # 9.6.0-0kali1, migrated 2026-08-24 — six days after upstream cut CE v9.6.0 —
+#                    # and the package description is literally "Six Degrees of Domain Admin,
+#                    # BloodHound CE". The `bloodhound` name is no longer the legacy pre-CE app it
+#                    # was when that header was written, which is how the claim went stale.
+#                    # This is the SIXTH instance of the error class this file already records
+#                    # fixing for caldera, sliver, evilginx2, `pack` and name-that-hash: a
+#                    # `→ UPSTREAM` pointer that outlived the packaging it was reasoning about.
+#                    # ⚠ THE HALF THAT MATTERS ON WSL2 IS THE DEPENDENCIES: `Depends: neo4j,
+#                    # postgresql, curl, kali-defaults` — NO DOCKER. bloodhound-cli's route is a
+#                    # compose stack, which on WSL2 needs Docker Desktop integration standing up
+#                    # first; the apt route skips that entirely. That is the reason to prefer this
+#                    # line, not merely that it exists.
+#                    # kali-linux-EVERYTHING only (the evilginx2 criterion), so a normal box has no
+#                    # server without this line. It also settles azurehound's `>= 9.0.0` API
+#                    # constraint below on the apt route: 9.6.0 clears it.
+#                    # ⚠ CURRENCY, stated as a HABIT not a number (the sliver lesson): kali-dev is
+#                    # already carrying 9.7.0~rc4, so this moves. Check the server's own version
+#                    # against SpecterOps' releases rather than trusting a head written here.
+#                    # ⚠ THE NAME IS SAFE ON BOTH SUITES, which is the thing worth checking before
+#                    # trusting a bare `bloodhound` in a manifest: `kali-last-snapshot` carries
+#                    # 9.2.2-0kali1 with the SAME "BloodHound CE" description and the same
+#                    # Docker-free Depends. So this line cannot pull the legacy pre-CE app on a
+#                    # snapshot box — it is older CE, not a different program. That is what makes
+#                    # it different from the httpx trap above, where the bare name resolved wrong.
+#                    # `bloodhound-cli` remains the right tool if you WANT the compose stack (or
+#                    # are off Kali) — it is no longer the only route.
 bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pkg
 #                    # is the LEGACY (≤4.3.1) collector — its zips don't ingest into CE
 #                    # nxc's --bloodhound module also collects (see offensive.zsh `bhce`)
@@ -117,6 +168,19 @@ bloodhound-ce-python # CE-compatible collector. NOTE: the 'bloodhound.py' apt pk
 #                    # against both packages' control fields, the Homepage-field discipline #276
 #                    # settled on. The reason not to install the legacy one is still that its zips
 #                    # don't ingest into CE, above — not that apt forbids the pair.
+#                    # NOTE: upstream GOING QUIET — dirkjanm/BloodHound.py last moved 2025-10-24 on
+#                    # BOTH `master` and the `bloodhound-ce` branch (~10.5 months), and kali's
+#                    # 1.9.1-0kali1 IS that head, so apt is not behind. The PKINITtools shape:
+#                    # annotated because it is a listed primary with a HAVE_BHPY probe, and an
+#                    # unmarked gap on a primary is the class this file keeps correcting — not
+#                    # because anything is known to be broken.
+#                    # ⚠ DELIBERATELY NOT CLAIMED: that CE 9.x has stopped ingesting 1.9.1's zips.
+#                    # The server went 8.5.0 → 9.6.0 in the same window the collector stood still,
+#                    # which is the obvious worry, but NO primary source confirms breakage either
+#                    # way — so this note says the collector is quiet and stops there. `bhce` in
+#                    # offensive.zsh routes through nxc's --bloodhound module, and rusthound-ce is
+#                    # the third AD collector, so a broken ingest here is survivable; verify at the
+#                    # start of an engagement rather than assuming in either direction.
 azurehound           # the ENTRA/M365 collector — the ONE half of the CE graph this block had
 #                    # no line for. The AD side is covered three ways (bloodhound-ce-python,
 #                    # rusthound-ce, nxc --bloodhound) and the repo carries a full Entra/M365 set
@@ -187,31 +251,60 @@ httpx-toolkit        # ProjectDiscovery httpx. ⚠ NEVER `apt install httpx` —
 #                    # That distinction is the hexyl rule (see the note further down): a name that
 #                    # cannot resolve is a name this manifest must never carry, and it is why
 #                    # `httpx-toolkit` is the only correct entry here.
-#                    # CURRENCY, previously unstated: apt runs about one minor behind (1.9.x against
-#                    # upstream's 1.10.x). Not a redup candidate — apt owns it, so `up` is the route.
-# katana            → UPSTREAM (Go): not installable from apt today —
-#                     CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
-#                     NOT in kali-rolling. "not in apt" is what this line used to say and it is
-#                     now too flat: Kali's packaging sits in kali-DEV at 1.7.0-0kali1 (initial
-#                     packaging committed 2026-08-27) and has not migrated — so apt cannot supply
-#                     it on any box today, the same status rustscan carries above. Re-check
-#                     pkg.kali.org/pkg/katana and restore the apt line if 1.7.0 migrates.
-#                     WATCH WHAT ELSE A MIGRATION WOULD BRING. apt owning the binary is exactly
-#                     when Kali patches a self-updater out — it already did so to nuclei's
-#                     `-update`, which is why redup's nuclei engine step is conditional. The
-#                     kali-dev packaging carries no debian/patches directory yet, so `-update`
-#                     survives there for now; redup's katana step PROBES for the flag anyway, so
-#                     a migrated-and-patched katana degrades to a skip instead of a tallied
-#                     failure on every run. Six releases in nine months and it ships its own
-#                     `-update` today, so redup drives the refresh — NOT the go_fast_movers
-#                     loop, whose bare `go install` would build it differently from the
-#                     documented CGO build.
+#                    # ⚠ CURRENCY: apt is TWO minors behind and the gap is widening — kali has sat
+#                    # on 1.9.0-0kali2 since 2026-05-18 (upstream's v1.9.0 is 2026-03-09, so the
+#                    # shipped code is ~6 months old), while upstream cut v1.10.0 (2026-07-09) and
+#                    # v1.11.0 (2026-08-31). The previous wording, "about one minor behind (1.9.x
+#                    # against upstream's 1.10.x)", was already stale when written and is the note
+#                    # that now carries the standing warning instead of a fixed number.
+#                    # Still NOT a redup candidate — apt owns the binary, so `up` is the route.
+#                    # ⚠ BUT DO NOT REACH FOR `httpx-toolkit -up` TO CLOSE THAT GAP. Unlike nuclei,
+#                    # Kali does NOT patch this one's self-updater out (its only patch renames a
+#                    # script in the README), so the flag is live on a dpkg-owned binary and will
+#                    # try to overwrite it — the same trap katana's note above describes, and the
+#                    # reason redup guards on writability rather than on the flag alone.
+#                    # THIS IS ALSO redup's LIVE OWNERSHIP-vs-CURRENCY COUNTER-EXAMPLE (#299).
+#                    # offensive.zsh used to teach that distinction with ffuf; kali imported ffuf
+#                    # 2.2.1-1 on 2026-09-02 and is now at upstream head, so the example died and
+#                    # this entry inherited it. apt owning a tool says nothing about apt keeping it
+#                    # current; that gap is still apt's to close, not redup's.
+katana               # crawler/spider that feeds the URL list the rest of the web block works on.
+#                    # APT NOW — katana 1.7.0-0kali1 MIGRATED to kali-rolling 2026-08-31, on the
+#                    # same day rustscan did, so the `→ UPSTREAM (CGO_ENABLED=1 go install …)`
+#                    # pointer and its re-check instruction are both retired. apt 1.7.0 IS upstream
+#                    # head (v1.7.0, 2026-08-05). kali-linux-EVERYTHING only, so a normal box needs
+#                    # this line. The CGO build note is kept for the non-Kali route below.
+#                    # ⚠ WHAT THE MIGRATION ACTUALLY BROUGHT IS THE OPPOSITE OF WHAT THIS NOTE
+#                    # PREDICTED, and that is the durable lesson. It expected the nuclei shape:
+#                    # apt takes the binary, Kali patches the self-updater out, redup's flag probe
+#                    # sees no `-update` and skips. Kali's katana packaging has NO debian/patches
+#                    # directory at all (nuclei's carries `Disable-update.patch`), so `-update`
+#                    # is still present and advertised on the DPKG-OWNED binary. Migrated and NOT
+#                    # patched — the branch the flag probe alone does not cover, because the probe
+#                    # passes and the update then fails on permissions.
+#                    # That is why redup's katana step now asks a SECOND question — can this
+#                    # process write the binary and its directory — and treats "no" as a neutral
+#                    # skip rather than a red tally (#299; see the guard in offensive/offensive.zsh).
+#                    # Do not "fix" that with sudo: escalating overwrites a dpkg-owned
+#                    # /usr/bin/katana that the next `apt upgrade` reverts.
+#                    # On the NON-Kali route the binary is a `go install` build you own, `-update`
+#                    # is live and writable, and redup drives the refresh — which is why katana
+#                    # stays in redup at all rather than moving to `up`. Still NOT go_fast_movers:
+#                    # that loop's bare `go install` would build it without the documented
+#                    # CGO_ENABLED=1 go install github.com/projectdiscovery/katana/cmd/katana@latest
 # (wfuzz dropped — unreferenced by any doc; ffuf/feroxbuster/gobuster cover fuzzing)
 
 # ── Service enumeration (the per-port folds in hacktheplanet) ─────────────────
 # All ship in kali-linux-default; listed here so a slim install (and anyone
 # following the port folds) has the primary command of each fold in PATH.
 onesixtyone          # SNMP community-string sweep (SNMP-161 fold)
+#                    # NOTE: upstream FROZEN — trailofbits/onesixtyone's last FUNCTIONAL commit is
+#                    # 2023-02-16 (packaging/manpage fixes); the only pushes since are a CODEOWNERS
+#                    # file and its merge, which is repo hygiene, not development. Latest release
+#                    # v0.3.4 (2022-12-28). ⚠ apt is NOT behind: kali's 0.3.4-1 IS that release.
+#                    # Keep it, on this block's standing logic — an SNMP community-string sweep
+#                    # exercises a PROTOCOL behaviour, not a bug anyone will patch out.
+#                    # Not archived, so this is frozen-because-finished, not abandoned.
 snmp                 # provides snmpwalk / snmpbulkwalk (SNMP-161 fold)
 snmpcheck            # human-readable SNMP enumeration (SNMP-161 fold). PACKAGE is `snmpcheck`,
 #                    # the BINARY it ships is `/usr/bin/snmp-check` — the same package/binary split
@@ -222,8 +315,12 @@ snmpcheck            # human-readable SNMP enumeration (SNMP-161 fold). PACKAGE 
 #                    # 2015-06-29, a static page rather than a repo. ⚠ apt is NOT behind here: kali's
 #                    # 1.9-0kali2 IS that release, so there is nothing to chase. Keep it — SNMP
 #                    # community-string enumeration is a PROTOCOL behaviour, not a bug anyone will
-#                    # patch out, the same reasoning mitm6 and PrintSpoofer are kept on. Annotated
-#                    # because this block's freezes were otherwise all marked and these two were not.
+#                    # patch out, the same reasoning mitm6 and PrintSpoofer are kept on.
+#                    # ⚠ THE CLOSING CLAIM THIS NOTE USED TO CARRY WAS FALSE WHEN WRITTEN. It said
+#                    # "this block's freezes were otherwise all marked and these two were not" —
+#                    # onesixtyone and nbtscan were also frozen and also unmarked, so the block was
+#                    # never fully annotated. Both now carry notes of their own (#299), which is
+#                    # what makes the claim true rather than the claim making it so.
 smtp-user-enum       # SMTP VRFY/EXPN/RCPT user enum (SMTP-25 fold)
 #                    # NOTE: upstream FROZEN — pentestmonkey.net, latest v1.2, and like snmpcheck
 #                    # above apt is AT that version (1.2-1kali4), not behind it. Deliberately no
@@ -247,6 +344,14 @@ dnsenum              # DNS enumeration + zone-transfer attempt (DNS-53 fold). �
 #                    # doc and no corpus entry names it, so it stays out on this file's membership
 #                    # rule — the trufflehog/PrivescCheck disposition, not a judgement on the tool.
 nbtscan              # NetBIOS name sweep (SMB fold)
+#                    # NOTE: upstream FROZEN — the dnsenum2 shape. kali's Homepage field points at
+#                    # resurrecting-open-source-projects/nbtscan, itself a RESCUE fork of an
+#                    # abandoned original, and that fork's last commit is 2022-10-29 (release 1.7.2,
+#                    # 2022-01-13). So the maintained-looking name is a rescue that has itself gone
+#                    # quiet. ⚠ apt is NOT behind: kali's 1.7.2-3 IS that release.
+#                    # Keep it for this block's usual reason — NetBIOS name service answers the same
+#                    # queries it always has — and because the SMB fold's alternatives (nxc, smbmap)
+#                    # authenticate, while this one just sweeps names pre-credential.
 smbclient            # provides BOTH `smbclient` (SMB-445 fold: share listing/browsing) and `rpcclient` (RPC-135 fold) — one Debian package, the primary command of two folds
 ftp                  # the plain FTP client (FTP-21 fold: the anonymous/anonymous check). Debian builds it from the tnftp source; ships in kali-system-core, so it is on every Kali — listed for the accounting, not the install
 nfs-common           # provides `showmount` (NFS-111/2049 fold: list the exports before you mount one). Also kali-system-core
@@ -375,6 +480,18 @@ kubectl              # from the `kubernetes` source pkg (also builds kubernetes-
 #                    # google-cloud-cli / gh / vault pointers above — rather than trusting this line.
 pacu                 # Rhino Security Labs' AWS exploitation framework — the corpus' AWS privesc/persistence entries
 peirates             # Kubernetes privesc + pivot (the k8s-* entries)
+#                    # ⚠ CURRENCY, previously unstated — and this line's silence was conspicuous:
+#                    # the kubectl note directly above reasons carefully about version skew and
+#                    # ends by saying it degrades "the corpus' k8s-* entries that sit under peirates
+#                    # above". The file was reasoning ABOUT peirates while leaving peirates itself
+#                    # unannotated, which is the unmarked-gap class it keeps correcting.
+#                    # kali is 1.1.28-0kali1 = upstream v1.1.28 (2025-07-26). Upstream was quiet for
+#                    # about a year and then WOKE UP: v1.1.29, v1.1.30 and v1.1.31 all landed inside
+#                    # a few weeks (latest 2026-09-04). So this is NOT a freeze — it is apt lagging
+#                    # a project that just resumed, the opposite disposition from the frozen tools
+#                    # above, and the reason to state it rather than leave it blank.
+#                    # BOTH HALVES OF THE K8S PIVOT PATH ARE NOW STALE and only kubectl said so.
+#                    # kali-linux-EVERYTHING only, so this line is what puts it on a normal box.
 npm                  # `npm` — the npm-* supply-chain entries (owner-add, 2FA-disable, malicious-publish)
 twine                # PyPI upload — the pypi-* supply-chain entries
 docker.io            # `docker` — harbor-* image/artifact entries; also how caldera below runs
@@ -451,7 +568,7 @@ adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver
 #                     `adaptixc2`.
 caldera              # adversary emulation, ATT&CK-mapped — APT-PACKAGED, and the `→ UPSTREAM/docker`
 #                    # pointer that was here was simply wrong: kali-rolling carries `caldera`
-#                    # (5.3.0-0kali1) and it installs /usr/bin/caldera, a wrapper around server.py.
+#                    # (5.3.0-0kali2) and it installs /usr/bin/caldera, a wrapper around server.py.
 #                    # Same error class this file already records fixing for sliver above.
 #                    # ⚠ it pulls a ~70 MB Python dependency chain. It IS in kali-linux-large
 #                    # (this note previously said "in NO kali-linux-* metapackage" — verified
@@ -521,6 +638,21 @@ ptunnel-ng           # the MAINTAINED fork (utoni/ptunnel-ng, redirected from ln
 # www.bamsoftware.com/git/dnstt.git (David Fifield, CC0); every github.com hit is a mirror or
 # fork — the iphelix/pack trap, once more.
 
+# atomic-operator is CONSIDERED AND REJECTED, recorded because a future scan WILL propose it
+# again as a lighter caldera — it is an Atomic Red Team runner, and caldera above is the
+# heavyweight in this slot. Kali advertised it as a NEW TOOL in the 2026.1 release post and
+# ships it today (source `atomic-operator`, binary `python3-atomic-operator` — the
+# package/binary split snmpcheck and httpx-toolkit above already document).
+# ⚠ THE REASON TO SKIP IT IS UPSTREAM, NOT PACKAGING: swimlane/atomic-operator has been
+# ARCHIVED since 2024-07-17 — eighteen months BEFORE Kali packaged it — and its last release
+# is v0.9.1 (2023-12-24), which is what 0.9.1-0kali2 is. BEING NEW TO APT IS NOT BEING ALIVE.
+# That is the whole lesson: a tool's arrival in kali-rolling says something about Kali's
+# packaging queue and nothing about whether anyone still maintains the code.
+# NO LIGHTER SUBSTITUTE FOR CALDERA EXISTS ON LINUX as a result. The Atomic Red Team CORPUS
+# is alive and well maintained; the maintained RUNNER for it is PowerShell/Windows-side
+# (Invoke-AtomicRedTeam), so there is no Linux-native replacement to reach for — caldera
+# stays the adversary-emulation entry, weight and all.
+
 # ── Credential attacks ────────────────────────────────────────────────────────
 hashid               # ID the hash mode before you burn GPU — the cracking entrypoint; ships in
 #                    # kali-linux-default.
@@ -531,6 +663,14 @@ hashid               # ID the hash mode before you burn GPU — the cracking ent
 #                    # What a frozen table misses is NEW formats; that is when you reach for the
 #                    # maintained alternative on the next line. Annotated for the same reason
 #                    # kerbrute, mitm6 and havoc are.
+#                    # ⚠ THAT GAP IS NARROWER THAN IT WAS, because the CRACKER learned the job:
+#                    # hashcat 7 (in kali since 2026-04-22, currently 7.1.2+ds1-4) AUTODETECTS the
+#                    # hash mode when you omit `-m`. So the "frozen table misses new formats" risk
+#                    # now has a second backstop below the identifier, and the honest ordering is
+#                    # hashid for a fast read, hashcat's own autodetect when the table comes up
+#                    # empty. Noted because it changes what this line is FOR, not whether to keep
+#                    # it. (hashcat 7.0.0 removed no options and renumbered no modes, so nothing
+#                    # in the cracking folds broke on that major — a rare one.)
 # name-that-hash    → IN KALI APT (1.11.0-0kali1), and deliberately NOT installed. The pointer
 #                     here used to read "UPSTREAM (pip install name-that-hash)", which was wrong
 #                     the same way caldera's UPSTREAM/docker pointer was: it routed an operator to
@@ -793,6 +933,21 @@ ligolo-ng            # modern reverse-tunnel pivot. The "(upstream if repo build
 #                    # do not want diverging from the implant you tested with.
 socat
 rlwrap               # readline wrapper for the reverse-shell listener (rlwrap nc -lvnp …); ships in kali-linux-default, list it for slim installs
+# penelope is CONSIDERED AND NOT LISTED — the dnstt disposition, recorded so the decision
+# isn't accidental. It is the only live NEWCOMER the #299 sweep turned up: a shell HANDLER
+# (brightio/penelope, kali 0.21.0-1 imported 2026-08-25, upstream active) that collapses
+# `rlwrap nc -lvnp 9001` plus the whole ttyup PTY-upgrade sequence into one tool. It is real
+# and it works; it is held out on TWO grounds, and the second is the one that would survive
+# the first being fixed:
+#   1. The membership rule, as usual — no doc and no corpus entry names it. That is the
+#      cheap objection and a doc edit would clear it.
+#   2. ⚠ THE MANUAL UPGRADE IS TAUGHT ON PURPOSE. hacktheplanet's shell-stabilisation fold,
+#      ippsec's method notes and offensive.zsh's `ttyup` all walk the python3-pty → stty raw
+#      -echo → `export TERM` sequence BY HAND, because that is IppSec's method and because it
+#      is what works on a box where you cannot install anything. A handler that hides the
+#      sequence is a fine convenience and a bad TEACHER, and this layer's shell material is
+#      pedagogical first. Adopting it is therefore a doc/method decision, not a packaging one.
+# TRACK, don't adopt: if the docs ever stop teaching the manual upgrade, revisit this.
 
 # ── Notes / reporting (keep findings OUT of this repo — see offensive.zsh) ─────
 # Engagement data → $ENGAGEMENTS_DIR (~/engagements), gitignored as a backstop.
