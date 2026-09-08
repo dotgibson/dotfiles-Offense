@@ -29,9 +29,9 @@ on **written authorization and a defined scope**.
 
 | Phase                      | ATT&CK tactic(s)              | Go-to tools (this layer)                                                                                                        | Workspace dir               |
 | -------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| **Recon**                  | Reconnaissance (TA0043)       | amass, subfinder, dnsx, bbot (`pipx`, not apt), theharvester, masscan                                                           | `recon/`                    |
+| **Recon**                  | Reconnaissance (TA0043)       | amass, subfinder, dnsx, bbot (`pipx`, not apt — see the 3.0 note below), theharvester, masscan                                  | `recon/`                    |
 | **Scanning / enum**        | Discovery (TA0007)            | `nmapsweep`, nxc (smb/ldap/winrm), enum4linux-ng, ldapdomaindump (apt: python3-ldapdomaindump)                                  | `scans/`                    |
-| **Initial access**         | Initial Access (TA0001)       | nuclei/httpx-toolkit/katana (katana: `go install`, not apt), ffuf/feroxbuster, sqlmap, Burp, responder                          | `web/`, `exploit/`          |
+| **Initial access**         | Initial Access (TA0001)       | nuclei/httpx-toolkit/katana, ffuf/feroxbuster, sqlmap, Burp, responder                                                          | `web/`, `exploit/`          |
 | **Cred access**            | Credential Access (TA0006)    | nxc, impacket (secretsdump), responder, hashcat/john, certipy-ad, sccmhunter (SCCM/MECM NAA + site takeover; upstream, not apt) | `loot/creds`, `loot/hashes` |
 | **AD attack-path mapping** | Discovery / PrivEsc           | **`bhce`** → BloodHound CE, bloodhound-ce-python, SharpHound                                                                    | `loot/bloodhound`           |
 | **Lateral movement**       | Lateral Movement (TA0008)     | nxc (exec over smb/winrm/mssql), impacket-psexec, evil-winrm                                                                    | `notes.md`                  |
@@ -60,14 +60,38 @@ tool in the kit: SMB / LDAP / WinRM / MSSQL / RDP / FTP / SSH auth, enumeration,
 lateral movement, credential extraction, *and* BloodHound collection — one
 scriptable interface. The old `crackmapexec`/`cme` muscle memory just becomes `nxc`.
 
+### bbot 3.0 moved the flags out from under 2.x muscle memory
+
+**`-s` means `--seeds` now, not `--silent`** (silent moved to `-S`). That is the one
+worth internalising, because it is the failure that does *not* announce itself: a 2.x
+habit of `bbot -s` for quiet output now adds a **seed** — a new scan target — and
+raises no error while doing it. On an engagement with a scoped target list, a flag you
+typed for quiet is a flag that widened your scope.
+
+The rest of the 3.0 break, in case a saved command line predates it: `--whitelist` is
+retired (`-t/--targets` defines scope, `-s/--seeds` supplies the starting events),
+`--allow-deadly` is gone, `noisy` was renamed `loud`, and six modules were removed
+(wappalyzer, smuggler, digitorus, sitedossier, passivetotal, wpscan). Config and preset
+values are pydantic-validated before a scan runs, so typos now fail fast instead of
+silently doing nothing.
+
+Nothing shipped in this repo breaks — bbot is named flagless in the table above, and no
+corpus entry invokes it — so this is a note about **what you type from memory**, the
+same exposure the wpscan 4.0 flag rename carries. bbot is `pipx`, not apt (it is in no
+kali-rolling component), so upgrading is your call and your timing.
+
 ### BloodHound is now BloodHound CE
 
 The legacy BloodHound 4.x collectors don't cleanly ingest into Community Edition.
 Use a **CE-compatible collector** — the `bhce` helper drives nxc's `--bloodhound`
 module, which packages a CE-ready zip into `loot/bloodhound/`. BloodHound CE itself
-is a Postgres-backed web app, not an apt package: stand it up with SpecterOps'
-official `bloodhound-cli` (a Go binary — curl the release or `go install`), which
-now owns the compose file under an XDG config dir.
+is a Postgres-backed web app, and on Kali it **is** an apt package now — `bloodhound`
+(9.6.0-0kali1, migrated 2026-08-24) is Community Edition, not the legacy 4.x app the
+name used to mean. It depends on neo4j/postgresql/curl and **not** on Docker, which is
+the half that matters on WSL2: SpecterOps' `bloodhound-cli` stands up a compose stack,
+so it wants Docker Desktop integration working first. `bloodhound-cli` (a Go binary —
+curl the release or `go install`) is still the right route if you want the compose
+stack or you're off Kali; it is no longer the only one.
 
 ---
 

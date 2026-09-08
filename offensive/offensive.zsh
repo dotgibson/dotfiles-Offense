@@ -580,22 +580,19 @@ redup() {
     print -- "  – searchsploit not installed — skipping"
   fi
 
-  # katana ships its own `-update`. That self-updater is why it lives HERE and not in
-  # go_fast_movers below; the reasoning is on that list.
+  # katana — a fast mover (six releases in nine months) that ships its own `-update`. That
+  # self-updater is why it lives HERE and not in go_fast_movers below; the reasoning is on
+  # that list. It is no longer "go-only": apt carries it as of 2026-08-31, which is exactly
+  # why the guard below grew a second question rather than staying a flag probe.
   #
   # THE FLAG IS PROBED, not assumed — the same guard and the SAME regex as the nuclei engine
-  # step above. THAT GUARD IS NO LONGER PREVENTIVE: katana 1.7.0-0kali1 MIGRATED to
-  # kali-rolling on 2026-08-31 and is an apt line in install/offensive-packages.txt again, so
-  # "go-only today", which this comment used to say, is false on a Kali box. apt owning a
-  # binary is exactly when Kali patches the self-updater out — it already did so to nuclei's
-  # `-update` — and an unconditional step here would then tally a red failure on EVERY run of
-  # a completely healthy box. That is the miscount the nuclei comment above exists to
+  # step above. This is no longer preventive: katana 1.7.0-0kali1 MIGRATED to kali-rolling on
+  # 2026-08-31, so on a current Kali box apt owns /usr/bin/katana today (the manifest entry in
+  # install/offensive-packages.txt is a plain apt line now, not an UPSTREAM pointer). apt
+  # owning a binary is exactly when Kali patches the self-updater out — it already did so to
+  # nuclei's `-update` — and an unconditional step here would tally a red failure on EVERY run
+  # of a completely healthy box. That is the miscount the nuclei comment above exists to
   # prevent; there is no reason to learn it a second time from the same function.
-  #
-  # The kali packaging carries no debian/patches yet, so `-update` survives on it for now and
-  # the WRITABLE-BINARY check below is what actually catches the apt-owned build: it skips
-  # neutrally rather than sudo-ing over a dpkg-owned file. On the non-Kali go-install route
-  # the binary is writable and the self-update still runs, which is the case this step keeps.
   #
   # THE WHOLE-TOKEN MATCH EARNS ITS KEEP HERE TOO. katana's help carries `-duc,
   # -disable-update-check`, which a bare `grep -- -update` matches — concluding the flag
@@ -648,11 +645,16 @@ redup() {
   #
   # That is a claim about OWNERSHIP, not about currency, and the old wording ("update via
   # `up`") blurred the two. apt owns those binaries, so `up` is the only correct route and
-  # they stay out of here — but it does NOT follow that apt keeps them CURRENT. ffuf is the
-  # standing counter-example: kali sits on 2.1.0 (imported Jan 2024) while upstream, quiet
-  # for three years, resumed and is on 2.2.x. That gap is still apt's to close, not redup's;
-  # `go install`-ing over a packaged binary just leaves two ffufs and no clarity about which
-  # one is on PATH. (gobuster IS current, so the pair reads more reassuringly than it should.)
+  # they stay out of here — but it does NOT follow that apt keeps them CURRENT.
+  #
+  # THE STANDING COUNTER-EXAMPLE IS httpx-toolkit (#299). It used to be ffuf — "kali sits on
+  # 2.1.0 (imported Jan 2024) while upstream resumed and is on 2.2.x" — and that example DIED:
+  # kali imported ffuf 2.2.1-1 on 2026-09-02 and is now at upstream head, as is gobuster. An
+  # example that resolves itself stops teaching, so it is replaced rather than deleted:
+  # httpx-toolkit has sat at 1.9.0-0kali2 since 2026-05-18 while upstream cut 1.10.0 and
+  # 1.11.0, and Kali does NOT patch its self-updater out. That gap is still apt's to close,
+  # not redup's; `go install`-ing over a packaged binary just leaves two of them and no
+  # clarity about which one is on PATH.
   #
   # The list is EMPTY by design: kerbrute (the former sole entry) is upstream-frozen (last
   # release v1.0.3, Dec 2019), so `go install …/kerbrute@latest` every run just re-fetched
@@ -666,8 +668,6 @@ redup() {
   # upstream's documented install is `CGO_ENABLED=1 go install`, while the loop below runs a
   # bare `go install` — an entry here would build katana differently from the documented
   # build. It carries its own `-update`, so it took the self-updater route above instead.
-  # That holds after the kali-rolling migration too, and more strongly: apt is now the route
-  # on Kali, which is `up`'s job rather than this loop's.
   #
   # `gh` was the second candidate — go-only, apt-ABSENT (2.46.0-3 was REMOVED from
   # kali-rolling 2025-12-10 and has not returned), and genuinely fast-moving, which is the
