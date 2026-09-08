@@ -61,6 +61,20 @@ release line.
 
 ### Fixed
 
+- **`check-packages.sh` named a suite it had not checked against.** The label exists so a
+  local run is interpretable — the script's own comment says an unresolvable name "prints
+  the suite it was checked against" — but it took the first real archive from
+  `apt-cache policy`, and apt lists every configured source. Third-party repos routinely
+  label themselves `a=stable`, so on a Kali box carrying one (observed: Yazi's
+  `o=Yazi,a=stable` sorting ahead of four `o=Kali` lines) it printed
+  `apt suite in view: stable` while actually resolving against `kali-last-snapshot`. That
+  inverts the label's purpose: an operator reads "does NOT resolve against stable",
+  assumes a Debian-stable false alarm, and dismisses a real drift signal. It now prefers
+  the archive of the **Kali-origin** source and falls back to the old first-real-archive
+  rule only where no Kali source is configured. Verified across five cases: Kali behind a
+  third-party repo, Kali alone, a non-Kali Debian box (fallback unchanged), a release line
+  with no `o=`, and empty policy output.
+
 - **`bootstrap.sh`'s `PATH` is not the shell's `PATH` — adopt `blib_user_bindirs_on_path`**
   (dotgibson/dotfiles-core#748). Replaces the hand-rolled `export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"` prelude, which also moves it below the `source core/lib/bootstrap-lib.sh` line. `~/.local/bin`, `~/.cargo/bin` and `$GOBIN` reach
   `PATH` only through the zsh layer, i.e. only inside a Core shell — which does not exist

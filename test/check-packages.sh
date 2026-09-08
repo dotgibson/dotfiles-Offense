@@ -63,10 +63,34 @@ manifests=("$@")
 ((${#manifests[@]})) || manifests=(install/offensive-packages.txt)
 
 # Name the suite so a local run's answer is interpretable. `apt-cache policy`'s FIRST
-# release line is the dpkg status pseudo-release (a=now), which is not a suite —
-# skip it and take the first real archive.
-suite="$(apt-cache policy 2>/dev/null |
-  sed -n 's/.*[[:space:],]a=\([^,]*\).*/\1/p' | grep -v '^now$' | head -1)"
+# release line is the dpkg status pseudo-release (a=now), which is not a suite — skip it.
+#
+# TAKING THE FIRST REAL ARCHIVE AFTER THAT IS NOT ENOUGH, which is what this used to do.
+# apt lists EVERY configured source, third-party repos included, and those routinely
+# label themselves `a=stable`. On a Kali box carrying one, the first real archive is the
+# third party's and this printed `apt suite in view: stable` — naming a suite the names
+# were NOT checked against, on a box actually resolving them against kali-last-snapshot.
+# That inverts the label's whole purpose: an operator reads "does NOT resolve against
+# stable", concludes the run was a Debian-stable false alarm, and dismisses a real drift
+# signal (or, as happened, misreads a correct one). Observed with the Yazi repo's
+# `o=Yazi,a=stable` sorting ahead of four `o=Kali` lines.
+#
+# So prefer the archive of the KALI-origin source — that is the one the manifest is
+# written against — and fall back to the old first-real-archive rule only when no Kali
+# source is configured (a non-Kali box, where the answer is advisory anyway).
+_suite_in_view() {
+  local policy; policy="$(apt-cache policy 2>/dev/null)" || return 0
+  local rel; rel="$(printf '%s\n' "$policy" | grep -E '^[[:space:]]*release ')"
+  # `o=Kali,` with the trailing comma: `-F` keeps it a literal, and the comma stops it
+  # matching a hypothetical `o=KaliSomething`. The a=now line carries no o= at all, so
+  # this filter drops the pseudo-release for free.
+  local kali; kali="$(printf '%s\n' "$rel" | grep -F 'o=Kali,' |
+    sed -n 's/.*[[:space:],]a=\([^,]*\).*/\1/p' | head -1)"
+  if [[ -n "$kali" ]]; then printf '%s\n' "$kali"; return 0; fi
+  printf '%s\n' "$rel" | sed -n 's/.*[[:space:],]a=\([^,]*\).*/\1/p' |
+    grep -v '^now$' | head -1
+}
+suite="$(_suite_in_view)"
 say "apt suite in view: ${suite:-unknown}"
 
 total=0
