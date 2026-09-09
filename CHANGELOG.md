@@ -576,6 +576,15 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Added
 
+- **The README opens with a rendered terminal hero** (dotgibson/dotfiles-core#948).
+  `assets/demo.gif` is filmed from `assets/demo.tape`, which dotfiles-core generates from
+  one shared template for all nine OS and role repos — the same tour everywhere, plus the
+  one command that is this repo's own: `core status` showing the role layer live over the
+  OS layer. The tape is generated (edit dotfiles-core's `assets/hero.tape.in`, not the
+  tape); re-render with `vhs assets/demo.tape` on a Debian box with this role layered on
+  top after a prompt or tooling change, then `gifsicle -O3 --lossy=80 --colors 64` — the
+  raw render is over Core's 2 MiB ceiling, the optimised one is not.
+
 - **`core-verify` asks the integrity question again, and `core-check` gets the freshness
   one back (dotgibson/dotfiles-core#691).** Adopting the fleet vocabulary pointed the
   canonical `core-verify` at `test/check-core-freshness.sh` and demoted `core-check` to an
