@@ -458,7 +458,7 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; `redup` refreshe
 #                     dotgibson/dotfiles-Offense#231.
 
 # ── Cloud / SaaS / CI-CD ──────────────────────────────────────────────────────
-# This block exists for the COMPANION CORPUS, not for hacktheplanet. ~55 of the corpus'
+# This block exists for the COMPANION CORPUS, not for hacktheplanet. 59 of the corpus'
 # red entries are cloud/SaaS/CI-CD, and the flat views deliberately don't mirror them
 # (hacktheplanet is per-service/per-port; cloud has no port). But ~/companion is
 # symlinked and `htpx` is a first-class alias — pick `aws-iam-backdoor-key`, hit `clip`,

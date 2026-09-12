@@ -7,7 +7,7 @@
 # separate workflow earns its own required-check name. Same precedent as routine-filter.yml
 # — small, repo-owned, one script invocation.
 #
-# companion.yml byte-compares the 18 PROJECTED red blocks against their entries; 85 of 103
+# companion.yml byte-compares the 19 PROJECTED red blocks against their entries; 87 of 106
 # red entries are unprojected and it has never seen their command lines. check-packages.sh
 # resolves the manifest, never the corpus. `impacket-petitpotam` and `dfscoerce` shipped
 # through the gap between them. See issue #208.
