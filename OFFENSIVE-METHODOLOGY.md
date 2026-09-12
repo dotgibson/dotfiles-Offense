@@ -109,7 +109,7 @@ stack or you're off Kali; it is no longer the only one.
   observations to `notes.md` as you go (IppSec's note discipline — see
   [`offensive/ippsec`](offensive/ippsec)): capture every state change, cred, and
   host the instant it happens so the report writes itself.
-- **WSL2 gotcha (already in PORTING-MATRIX).** A listener / reverse shell in Kali
+- **WSL2 gotcha (already in `core/PORTING-MATRIX.md`).** A listener / reverse shell in Kali
   under WSL2 isn't reachable from your LAN until you set
   `networkingMode=mirrored` in the **Windows-side** `%UserProfile%\.wslconfig`
   (Win11 22H2+) — not `/etc/wsl.conf`. Bites every Sliver/Responder/C2 setup.

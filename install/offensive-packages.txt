@@ -222,7 +222,7 @@ nikto                # web-server misconfig/known-issue scanner. ALIVE and apt i
 #                    # ⚠ 2.6.x CHANGED THIS TOOL'S NETWORK SIGNATURE: it now sends a STATIC Chrome
 #                    # User-Agent by default instead of rotating one per request, and keeps TLS
 #                    # connections alive. Nikto was never quiet, but "loud in a new shape" matters
-#                    # when you are reasoning about what a defender saw — see PURPLE-TEAM.md.
+#                    # when you are reasoning about what a defender saw.
 wpscan               # WordPress enum/scan (needs a free API token for vuln data); ships in kali-linux-default
 #                    # ⚠ KALI MOVED THIS ONE UNDER YOU. kali-rolling jumped 3.8.28 → 4.1.0 in Aug
 #                    # 2026 after 3.8.28 had sat since Mar 2025, so an `apt upgrade` since then
@@ -842,8 +842,8 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # AADInternals is NOT listed here either — it's operator-side external recon, not
 # target-dropped, so it sits with the other M365 tools under Recon / OSINT above.
 # The evasion doc's payload-BUILD tooling is NOT listed here either, and is not
-# target-dropped: macro_pack (offensive/evasion:30), PowerUpSQL (:126), and the
-# Donut / sRDI / ConfuserEx / ScareCrow loaders (:62-63) run operator-side to produce
+# target-dropped: macro_pack (offensive/evasion:32), PowerUpSQL (:141), and the
+# Donut / sRDI / ConfuserEx / ScareCrow loaders (:68) run operator-side to produce
 # an artifact, and most of them need WINDOWS to do it — a lab Windows VM is the real
 # prerequisite, so they are named here for the accounting and shipped nowhere.
 # ⚠ "None is in Kali apt" is what this paragraph used to say, and it is NOT true —
