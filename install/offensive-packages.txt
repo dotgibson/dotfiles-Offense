@@ -141,8 +141,10 @@ bloodhound           # ⚠ THE `NOT apt` THIS BLOCK USED TO ASSERT IS FALSE. The
 #                    # kali-linux-EVERYTHING only (the evilginx2 criterion), so a normal box has no
 #                    # server without this line. It also settles azurehound's `>= 9.0.0` API
 #                    # constraint below on the apt route: 9.6.0 clears it.
-#                    # ⚠ CURRENCY, stated as a HABIT not a number (the sliver lesson): kali-dev is
-#                    # already carrying 9.7.0~rc4, so this moves. Check the server's own version
+#                    # ⚠ CURRENCY, stated as a HABIT not a number (the sliver lesson): upstream cut
+#                    # v9.7.0 FINAL on 2026-09-10 (after rc5) while Kali has been tracking the 9.7.0
+#                    # RC line, so an ~rc box now trails a released final — the `~` sorts below it, so
+#                    # `up` closes the gap once Kali cuts the final. Check the server's own version
 #                    # against SpecterOps' releases rather than trusting a head written here.
 #                    # ⚠ THE NAME IS SAFE ON BOTH SUITES, which is the thing worth checking before
 #                    # trusting a bare `bloodhound` in a manifest: `kali-last-snapshot` carries
@@ -251,10 +253,10 @@ httpx-toolkit        # ProjectDiscovery httpx. ⚠ NEVER `apt install httpx` —
 #                    # That distinction is the hexyl rule (see the note further down): a name that
 #                    # cannot resolve is a name this manifest must never carry, and it is why
 #                    # `httpx-toolkit` is the only correct entry here.
-#                    # ⚠ CURRENCY: apt is TWO minors behind and the gap is widening — kali has sat
+#                    # ⚠ CURRENCY: apt is THREE minors behind and the gap is widening — kali has sat
 #                    # on 1.9.0-0kali2 since 2026-05-18 (upstream's v1.9.0 is 2026-03-09, so the
-#                    # shipped code is ~6 months old), while upstream cut v1.10.0 (2026-07-09) and
-#                    # v1.11.0 (2026-08-31). The previous wording, "about one minor behind (1.9.x
+#                    # shipped code is ~6 months old), while upstream cut v1.10.0 (2026-07-09),
+#                    # v1.11.0 (2026-08-31) and v1.12.0 (2026-09-08). The previous wording, "about one minor behind (1.9.x
 #                    # against upstream's 1.10.x)", was already stale when written and is the note
 #                    # that now carries the standing warning instead of a fixed number.
 #                    # Still NOT a redup candidate — apt owns the binary, so `up` is the route.
@@ -440,6 +442,9 @@ exploitdb            # searchsploit — offline Exploit-DB CLI; `redup` refreshe
 #                     Windows/PowerShell host rather than Kali. Operator-side external recon
 #                     (unauth, pre-access), which is why it lives here and not in the
 #                     target-dropped section.
+#                     ⚠ CURRENCY: no GitHub releases at all — PSGallery is the only channel, so
+#                     there is no tag to read currency off. Entra is a moving target (unlike SMTP
+#                     or SNMP verbs), so verify the installed module version at engagement start.
 # ROADtools         → UPSTREAM (PyPI `roadrecon` + `roadtx`) and the ONE upstream tool this
 #  (roadrecon,        file names that `--install` REALLY INSTALLS: bootstrap's
 #   roadtx)           _install_apt_absent pipx-installs both on every route, Kali included.
@@ -749,6 +754,8 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 #                     for exactly that line. dafthack's own repo is PowerShell; the .py the
 #                     entry names is a port, and htpx does not say which one — worth
 #                     pinning upstream (dotgibson/htpx) rather than guessing here.
+#                     ⚠ CURRENCY: dafthack's repo is cold — no default-branch commit since
+#                     2022-11-30 (verified via GitHub API), though not archived. A watch item.
 # tfc-agent         → UPSTREAM (HashiCorp release binary): the Terraform Cloud agent, run
 #                     on infrastructure YOU control so a workspace's runs execute where you
 #                     can read them (`tfc-agent-hijack`). NOT target-dropped, which is why
