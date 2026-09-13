@@ -22,6 +22,7 @@
 #   ./bootstrap.sh --dry-run       # print the whole plan, change nothing
 #   ./bootstrap.sh --only zsh,nvim # link ONLY these Core module groups
 #   ./bootstrap.sh --skip tmux     # link everything EXCEPT these groups
+#   ./bootstrap.sh --strict        # exit 1 if any --install step did not complete
 #
 # Module groups (for --only/--skip): zsh nvim tmux git prompt tools — Core wiring
 # only; the band-85 role stage rides `zsh`.
@@ -34,6 +35,7 @@ LINKS_ONLY=0
 DO_CHECK=1
 DO_INSTALL=0
 DRY=0
+STRICT=0
 # --only/--skip are validated by the shared lib (blib_select), sourced AFTER this
 # loop — capture the raw values now and apply them below.
 ONLY_RAW="" SKIP_RAW="" ONLY_SEEN=0 SKIP_SEEN=0
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do case "$1" in
     echo "note: --no-upgrade is obsolete — package upgrades belong to your OS-native layer" >&2
     ;;
   --dry-run | -n) DRY=1 ;;
+  --strict) STRICT=1 ;;
   --only) [[ $# -ge 2 ]] || { echo "--only requires module names, e.g. --only zsh,nvim" >&2; exit 1; }; ONLY_RAW="$2"; ONLY_SEEN=1; shift ;;
   --only=*) ONLY_RAW="${1#*=}"; ONLY_SEEN=1 ;;
   --skip) [[ $# -ge 2 ]] || { echo "--skip requires module names, e.g. --skip tmux" >&2; exit 1; }; SKIP_RAW="$2"; SKIP_SEEN=1; shift ;;
@@ -278,15 +281,15 @@ check_tools() {
 # both names is a change to offensive.zsh, tracked separately.
 apt_install() { # resilient: bulk first, then per-package (apt aborts on one bad name)
   local -a pkgs=("$@")
-  if sudo apt-get install -y --no-install-recommends "${pkgs[@]}"; then return 0; fi
+  if blib_priv apt-get install -y --no-install-recommends "${pkgs[@]}"; then return 0; fi
   blib_say "bulk install hit a snag — retrying package-by-package"
   local p
   for p in "${pkgs[@]}"; do
     # Keep --no-install-recommends on the retry too: without it the fallback path
     # quietly pulls a much larger dependency set than the bulk path would have, so
     # WHICH path ran changed what ended up on the box.
-    sudo apt-get install -y --no-install-recommends "$p" ||
-      echo "   skipped (unavailable on this box?): $p"
+    blib_priv apt-get install -y --no-install-recommends "$p" ||
+      blib_note_fail "package '$p' — unavailable on this box? check: apt-cache policy $p"
   done
 }
 
@@ -302,7 +305,7 @@ _pipx_install() {
   fi
   blib_say "$pkg (pipx — provides $bin)"
   pipx install "$pkg" >/dev/null 2>&1 ||
-    echo "   pipx install $pkg failed — retry by hand: pipx install $pkg"
+    blib_note_fail "$bin — pipx install $pkg failed; retry by hand: pipx install $pkg"
 }
 
 # _go_install <module@version> <binary-it-provides>
@@ -317,7 +320,7 @@ _go_install() {
   fi
   blib_say "$bin (go install $mod)"
   GOBIN="$HOME/.local/bin" go install "$mod" >/dev/null 2>&1 ||
-    echo "   go install $mod failed — retry by hand: GOBIN=\"\$HOME/.local/bin\" go install $mod"
+    blib_note_fail "$bin — go install $mod failed; retry by hand: GOBIN=\"\$HOME/.local/bin\" go install $mod"
 }
 
 # _install_apt_absent — the tools NO route can apt-install, on EVERY route.
@@ -373,16 +376,23 @@ install_offensive() {
       blib_say "(dry run) would pipx-install (apt-absent, every route): roadrecon roadtx"
       return 0
     fi
-    # One password prompt up front, then keep the timestamp warm. Without this the first
-    # sudo can land many minutes into an otherwise unattended run — long after the
-    # operator walked away — and block on a prompt nobody is watching.
-    if command -v sudo >/dev/null 2>&1; then
-      sudo -v || { echo "sudo is required for the package install" >&2; return 1; }
-    fi
+    # Core's escalator and keepalive: resolve sudo/doas ONCE by absolute path (root runs
+    # directly), prime it with the prompt visible, then refresh the timestamp in the
+    # background. The one-shot `sudo -v` this replaces primed once and let it expire — on
+    # a run whose next line says "go get coffee" — so the first sudo after the timeout
+    # landed on a prompt nobody was watching. This branch owns the EXIT trap that stops
+    # the refresher; the apt route is the only privileged thing this bootstrap does.
+    blib_resolve_su --require || return 1
+    trap 'blib_sudo_keepalive_stop' EXIT
+    blib_sudo_keepalive_start || {
+      echo "sudo authentication failed — cannot install packages" >&2
+      return 1
+    }
     export DEBIAN_FRONTEND=noninteractive
     blib_say "apt update (the offensive stack is heavy — go get coffee)"
-    sudo apt-get update
+    blib_priv apt-get update
     apt_install "${off[@]}"
+    blib_sudo_keepalive_stop
     blib_ok "offensive packages requested: ${#off[@]}"
     blib_say "the apt list is Kali's. On a slim box some of these ship in kali-linux-default already."
     # Kali packages nearly this whole stack, but not ROADtools — and apt is the ONLY thing
@@ -552,6 +562,19 @@ blib_say "engagement data lives in ~/engagements (outside this repo) — run \`m
 if ((DRY)); then
   blib_ok "dry run complete — nothing was changed."
   exit 0
+fi
+
+# ── closing report ────────────────────────────────────────────────────────────
+# --install is best-effort by design — the offensive tools are optional; zsh is not — but a
+# miss must not be silent. blib_note_fail records each one (Core's ledger, which also holds
+# what the shared lib records itself); blib_failures_report prints them together here and
+# returns non-zero when there were any, which --strict turns into the exit code.
+if ! blib_failures_report; then
+  blib_warn "the offensive tools are optional — re-run with --install after fixing the above, or run the printed commands by hand"
+  if ((STRICT)); then
+    blib_warn "exiting non-zero (--strict)"
+    exit 1
+  fi
 fi
 
 # Everything above wires a zsh config. On a box with no zsh — or with zsh installed but
