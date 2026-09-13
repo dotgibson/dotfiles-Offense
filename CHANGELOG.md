@@ -744,6 +744,21 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **`bootstrap.sh --install` runs on Core's escalation, sudo-keepalive and failure-tally
+  helpers instead of bare `sudo`** (dotgibson/dotfiles-core#973). The Kali apt route
+  hard-coded `sudo` three times and primed it with a one-shot `sudo -v` whose own comment
+  promised to "keep the timestamp warm" — one line before "go get coffee". It now resolves
+  the escalator once with `blib_resolve_su` (root runs directly, else `sudo`, else `doas`, by
+  absolute path), runs the three apt calls through `blib_priv`, and keeps the timestamp warm
+  for real with `blib_sudo_keepalive_start` / `_stop`. Every best-effort install — the apt
+  per-package fallback, each `pipx install`, each `go install` — now records a miss via
+  `blib_note_fail` instead of an indented `echo`, `blib_failures_report` prints them together
+  after the wiring, and a new `--strict` turns a non-empty tally into exit 1. Without it the
+  exit code is unchanged: the offensive tools are optional; zsh is not. Closes this repo's
+  rows in Core's `audit-core.sh` §5f ledger, including the keepalive row it had been exempt
+  from on the theory that a role repo installs no long package sets — the apt route is that
+  set.
+
 - **BREAKING — `make core-sync` no longer pulls; Core arrives by fan-out
   ([dotfiles-core#676](https://github.com/dotgibson/dotfiles-core/issues/676)).**
   `scripts/sync-core.sh` is now report-only: it says how far behind `core/` is and how
