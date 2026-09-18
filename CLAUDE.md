@@ -92,6 +92,14 @@ paranoid `.gitignore` as backup.
   whole purpose is to make an invented binary **fail**: it is why `impacket-petitpotam`
   is rejected (#208). The corpus-commands gate must stay offline, so it reads this
   checked-in roster rather than asking apt; `packages.yml` keeps the roster honest
+- `test/check-view-counts.sh` / `make view-counts` — the gate for the hand-typed
+  red/blue/projected counts that the four views quote about the vendored corpus
+  (`hacktheplanet`, `PURPLE-TEAM.md`, `OFFENSIVE-METHODOLOGY.md`). It re-derives what
+  the tree can supply — corpus totals, projected-block counts, and the blue
+  no-event-ID count (`event_ids: []`) — and leaves the semantic buckets
+  (cloud/C2/Linux, the 68%/75% shares) as reviewable `-` slots. Wired into the
+  `Makefile` and `.github/workflows/checks.yml`; the counts go stale on every
+  `companion-sync`, which is why the gate exists
 - `install/tools.lst` — the host-tool probe list: what `bootstrap.sh` reports on. A
   command belongs here only if the offensive **role layer** probes or invokes it by bare
   name — usually `offensive/offensive.zsh`, but `tmux` is there for `offensive.conf` and
