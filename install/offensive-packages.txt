@@ -274,7 +274,10 @@ httpx-toolkit        # ProjectDiscovery httpx. ⚠ NEVER `apt install httpx` —
 #                    # 2.2.1-1 on 2026-09-02 and is now at upstream head, so the example died and
 #                    # this entry inherited it. apt owning a tool says nothing about apt keeping it
 #                    # current; that gap is still apt's to close, not redup's.
-katana               # crawler/spider that feeds the URL list the rest of the web block works on.
+katana               # doc-referenced twice — OFFENSIVE-METHODOLOGY.md's Initial-access row and
+#                    # aliases.md's redup entry (a fast-mover redup refreshes). NOT by the web
+#                    # fold in hacktheplanet, which runs whatweb/ffuf/feroxbuster/nuclei against a
+#                    # bare host and consumes no crawler-fed URL list; that earlier basis was stale (#341).
 #                    # APT NOW — katana 1.7.0-0kali1 MIGRATED to kali-rolling 2026-08-31, on the
 #                    # same day rustscan did, so the `→ UPSTREAM (CGO_ENABLED=1 go install …)`
 #                    # pointer and its re-check instruction are both retired. apt 1.7.0 IS upstream
@@ -780,7 +783,9 @@ evilginx2            # AitM reverse-proxy phishing framework — the `aitm-phish
 # pxethiefy         → UPSTREAM (github.com/csandker/pxethiefy, git clone + a venv):
 #                     the Linux PXE-boot-media credential thief in the same SCCM fold (the
 #                     lighter cousin of MWR's Windows PXEThief). Single script, needs
-#                     CAP_NET_RAW. The recovered blob cracks with hashcat -m 19850.
+#                     CAP_NET_RAW. The recovered blob cracks with hashcat -m 19850 — MWR-CyberSec's
+#                     CUSTOM ConfigMgr module (configmgr-cryptderivekey-hashcat-module), NOT in
+#                     stock/Kali hashcat; build hashcat with it first (bare -m 19850 errors out).
 
 # ── Target-dropped enumeration (nothing to install HERE) ──────────────────────
 # These run ON the target, not on the attacker box, so they're per-engagement

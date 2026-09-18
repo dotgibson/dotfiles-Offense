@@ -65,19 +65,20 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 >
 > Of those 81, **72** genuinely carry no Windows event ID. Seven of the remaining
 > nine are the C2-egress and Impact detections named above. The last two —
-> `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662**, which is
-> this file's own criterion for projecting, and yet project nowhere. That pair is a
-> real gap rather than part of the split, and here it is the WHOLE detection that is
-> missing rather than just the projection: the only `4662` material below is DCSync's
-> replication mask (`0x100`), which is the opposite shape from a collection fan-out
-> (`dc(Object_Name)` across hundreds of objects in one window), and **1644** — the
-> expensive/inefficient-LDAP-search event both entries lean on to see the query text —
-> appears nowhere in this file at all.
+> `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662** and carry
+> no generated block. ldap-recon-4662 is now covered by the hand-authored **LDAP
+> recon** section below, which keys off **1644** — the expensive/inefficient-LDAP-search
+> event that surfaces the query text, formerly absent from this file — and **4662**.
+> That leaves `bloodhound-collect-4662` as the one whole detection still missing here:
+> its only `4662` material is DCSync's replication mask (`0x100`), the opposite shape
+> from a collection fan-out (`dc(Object_Name)` across hundreds of objects in one window).
 >
-> Do NOT read that as mirroring the red side: `hacktheplanet` flags only **one** gap,
-> `ldap-recon`. It covers `bloodhound-collect`'s Linux collector more richly than the
-> entry does and is missing only that entry's `SharpHound.exe` line. Read all three
-> with `htpx` until this is closed.
+> Do NOT read that as mirroring the red side: `hacktheplanet` now covers **both** — it
+> gained an `LDAP — TCP 389/636` fold for ldap-recon, and it already covers
+> `bloodhound-collect`'s Linux collector more richly than the entry does (short only that
+> entry's `SharpHound.exe` line). Here ldap-recon is closed, but `bloodhound-collect`'s
+> 4662 detection is still missing entirely. Read all three with `htpx` until that is
+> closed.
 >
 > These counts are hand-maintained and go stale on every `companion-sync`. No htpx version
 > is named here on purpose — one stamped into prose rots the way these counts did;
@@ -86,6 +87,43 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > `ls offensive/companion/entries/blue | wc -l`, this file is wrong, not the corpus.
 
 ### Recon / credential access
+
+**Detect LDAP recon / directory enumeration (1644 + 4662)**
+
+The shape is a fan-out: one principal issuing a broad, expensive LDAP filter or
+reading hundreds of directory objects in a short window — a raw
+`ldapsearch '(objectClass=*)'`, `ldapdomaindump`, or a SharpHound collection
+sweep. Two events carry it, and both need auditing switched on first, so the
+detection is only ever as good as the DC's audit config.
+
+`1644` is the expensive/inefficient/slow LDAP-search event, and the one place the
+filter *text* is visible — but it is off by default. Enable the `Field
+Engineering` diagnostic (`HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics\15 Field Engineering` = 5)
+and the search-time / entries thresholds (or set them to 0), or nothing logs.
+
+```spl
+index=main EventCode=1644
+| rex field=Message "(?i)Search Filter:\s*(?<ldap_filter>.+)"
+| stats count values(ldap_filter) AS filters by host, Client
+| where count > 50 | sort -count
+```
+
+`4662` (Directory Service Access) fires per object touched and needs a SACL for
+`Audit Directory Service Access` on the domain head. The collection fan-out is the
+invariant — one non-machine principal touching many *distinct* `Object_Name`s in
+one window — not any single access mask, so key on the distinct-object count, not
+the `0x100` replication mask that marks DCSync:
+
+```spl
+index=main EventCode=4662 NOT (Account_Name="*$") NOT (Object_Name="-")
+| stats dc(Object_Name) AS Objects by Account_Name, host
+| where Objects > 100 | sort -Objects
+```
+
+Both thresholds are baseline-relative: a DC's own services read the directory
+widely, so alert on the rate from a single non-service principal, not the raw
+count. Pair with `bloodhound-collect` (still uncovered here) when a 1644 broad
+filter and a 4662 fan-out fire together — that is one operator mapping the domain.
 
 <!-- companion:gen password-spray-4625 -->
 **Detect password spray (one source, many accounts — 4771 + 4625)**
