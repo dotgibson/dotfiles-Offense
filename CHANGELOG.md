@@ -61,6 +61,31 @@ release line.
 
 ### Fixed
 
+- **Four manifest annotations and `redup`'s ledger caught up with a fast-moving week** — the
+  act-on-it half of [#339](https://github.com/dotgibson/dotfiles-Offense/issues/339). All
+  comment-only; no package added or removed, so the parsed manifest is byte-identical.
+  - **`chisel`'s premise flipped.** apt moved to `1.12.1-0kali2` (migrated 2026-09-16), so the
+    "apt ships a pre-release, two RCs ahead of stable" reading is dead — apt is level with, or a
+    step past, upstream's newest tag (a `v1.12.1` tag exists but no release object yet, so
+    `releases/latest` still reads v1.12.0). The breaking-flag list is now framed as live on the
+    installed binary rather than hypothetical.
+  - **`evil-winrm`'s gap closed, and one sub-note became a trap.** apt is `4.1-0kali1` (migrated
+    2026-09-14), at upstream's v4.1 head. The old note told operators to expect the apt build to
+    drop idle shells; v4.1's keepalive and `download` path-traversal fix are now present, so a
+    dropped idle shell now *is* a real network signal. Kept as a closed gap, not deleted (the
+    `ffuf` shape).
+  - **BloodHound CE lost its named head.** The `9.7.0~rc4` head rotted in eight days (upstream
+    cut v9.7.1); currency is now stated purely as a habit — check the server's own version
+    against SpecterOps' releases — with no number left to rot. The `9.6.0` migration fact and
+    the `bloodhound-ce-python` "going quiet" note are re-verified and unchanged.
+  - **AdaptixC2's branch ledger dropped a dead branch.** `dev-v1.3` no longer exists; the note
+    now names the live branches (a `v1.2` branch and `testing-v2.0`).
+  - **`redup`'s ledger records `pipx` as the third evaluated-and-deferred candidate.**
+    `roadrecon`/`roadtx`/`bbot` are pipx-owned and apt cannot touch them, but adopting
+    `pipx upgrade` would widen redup's contract from "run each tool's own updater" to "drive a
+    package manager" — the ownership line redup exists to respect. `go_fast_movers` stays empty
+    by reason.
+
 - **`check-packages.sh` named a suite it had not checked against.** The label exists so a
   local run is interpretable — the script's own comment says an unresolvable name "prints
   the suite it was checked against" — but it took the first real archive from
@@ -743,6 +768,39 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
   `core.lock`.
 
 ### Changed
+
+- **`bootstrap.sh` runs on Core's bootstrap driver, `blib_main`** (dotgibson/dotfiles-core#986).
+  The shared half — the flag loop, the Core symlink surface, the band-85 role stage, the
+  managed `~/.zshrc`, the closing report — now runs from one definition in
+  `core/lib/bootstrap-lib.sh`. This file declares what it is (`BOOTSTRAP_ROLE=offensive`,
+  `BOOTSTRAP_LOGIN_SHELL=0`, and `BOOTSTRAP_SU=lazy`: the driver resolves no escalator and
+  primes no keepalive, because only `--install`'s Kali apt route needs them and
+  `install_offensive` does both itself at the point of need) and keeps only what is
+  offensive: the host-tool probe as `bootstrap_check` (which also runs the installer's own
+  dry-run preview under `--dry-run --install`), the opt-in stack as `bootstrap_provision`
+  (`install_offensive` unchanged), the pre-role-layer migration, the `prefix + e` popup
+  script and the `~/` field references as `bootstrap_wire_pre_loader`, the engagement note
+  plus the login-shell guard — now Core's `blib_login_shell_hint`, which Defense carried
+  the same copy of — as `bootstrap_closing`, and `--install` / `--no-check` plus the two
+  deprecation shims through `bootstrap_flag`. The `--links-only` + `--install`
+  contradiction is refused in `bootstrap_guard` as before. 619 → 551 lines. One convention
+  change: an unknown flag exits **2** (usage error), not 1. Same links, same routes, same
+  exit codes otherwise; a plain run still never prompts for sudo.
+
+- **`bootstrap.sh --install` runs on Core's escalation, sudo-keepalive and failure-tally
+  helpers instead of bare `sudo`** (dotgibson/dotfiles-core#973). The Kali apt route
+  hard-coded `sudo` three times and primed it with a one-shot `sudo -v` whose own comment
+  promised to "keep the timestamp warm" — one line before "go get coffee". It now resolves
+  the escalator once with `blib_resolve_su` (root runs directly, else `sudo`, else `doas`, by
+  absolute path), runs the three apt calls through `blib_priv`, and keeps the timestamp warm
+  for real with `blib_sudo_keepalive_start` / `_stop`. Every best-effort install — the apt
+  per-package fallback, each `pipx install`, each `go install` — now records a miss via
+  `blib_note_fail` instead of an indented `echo`, `blib_failures_report` prints them together
+  after the wiring, and a new `--strict` turns a non-empty tally into exit 1. Without it the
+  exit code is unchanged: the offensive tools are optional; zsh is not. Closes this repo's
+  rows in Core's `audit-core.sh` §5f ledger, including the keepalive row it had been exempt
+  from on the theory that a role repo installs no long package sets — the apt route is that
+  set.
 
 - **BREAKING — `make core-sync` no longer pulls; Core arrives by fan-out
   ([dotfiles-core#676](https://github.com/dotgibson/dotfiles-core/issues/676)).**

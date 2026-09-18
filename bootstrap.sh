@@ -9,69 +9,21 @@
 # target — so the apt base list, the SHA-pinned out-of-band installs, the WSL bootstrap
 # and the ssh/git/zsh OS overlays all moved there. What is left here is the role.
 #
-# The SHARED half of a bootstrap — link-with-backup, the Core symlink surface, the
-# managed ~/.zshrc loader — is CALLED out of core/lib/bootstrap-lib.sh, not copied.
-# What stays here is the genuinely offensive part: the tool probe, the opt-in tool
-# installer, and the band-85 role stage.
-#
-# >>>USAGE
-#   ./bootstrap.sh                 # symlinks + loader + the host-tool probe
-#   ./bootstrap.sh --links-only    # just (re)create symlinks (no probe)
-#   ./bootstrap.sh --no-check      # skip the host-tool probe
-#   ./bootstrap.sh --install       # OPT-IN: also install the offensive tool stack
-#   ./bootstrap.sh --dry-run       # print the whole plan, change nothing
-#   ./bootstrap.sh --only zsh,nvim # link ONLY these Core module groups
-#   ./bootstrap.sh --skip tmux     # link everything EXCEPT these groups
-#
-# Module groups (for --only/--skip): zsh nvim tmux git prompt tools — Core wiring
-# only; the band-85 role stage rides `zsh`.
-# <<<USAGE
+# THE DRIVER FORM (dotgibson/dotfiles-core#976, #986). The shared half of a bootstrap —
+# the flags, the Core symlink surface, the band-85 role stage, the managed ~/.zshrc
+# loader, the closing report — is core/lib/bootstrap-lib.sh :: blib_main, ONE definition
+# instead of a copy per repo. This file declares what it is (BOOTSTRAP_SU=lazy: escalation
+# belongs to the opt-in installer, and only its apt route), defines the hooks that are
+# genuinely offensive (the tool probe, the --install stack, the role's own links, the
+# closing notes), and hands over. `--help` prints both halves.
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Read by blib_main in the sourced lib (shellcheck does not follow into it).
+# shellcheck disable=SC2034
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
-LINKS_ONLY=0
 DO_CHECK=1
 DO_INSTALL=0
-DRY=0
-# --only/--skip are validated by the shared lib (blib_select), sourced AFTER this
-# loop — capture the raw values now and apply them below.
-ONLY_RAW="" SKIP_RAW="" ONLY_SEEN=0 SKIP_SEEN=0
-
-# Print the usage block above, between its markers. Extracted by MARKER, not by a
-# line range: the old `sed -n '2,14p'` silently truncated (or leaked) the moment
-# anything was added to the header, which is exactly what happened when the flag
-# list grew. Strips the leading '# ' so the output reads as help, not as source.
-usage() { sed -n '/^# >>>USAGE$/,/^# <<<USAGE$/p' "$0" | sed '1d;$d;s/^# \{0,1\}//'; }
-
-while [[ $# -gt 0 ]]; do case "$1" in
-  --links-only) LINKS_ONLY=1 ;;
-  --no-check) DO_CHECK=0 ;;
-  --install) DO_INSTALL=1 ;;
-  # Accepted, not an error: --no-offensive used to mean "skip the heavy tool install",
-  # which is now the DEFAULT. Anyone (or any script) carrying the old flag should get
-  # the behaviour they asked for, not an abort — so say it is redundant and move on.
-  --no-offensive)
-    echo "note: --no-offensive is redundant — this bootstrap installs nothing unless --install is passed" >&2
-    ;;
-  # Likewise --no-upgrade: there is no apt full-upgrade here any more. Your OS-native
-  # layer owns that (dotfiles-Debian's bootstrap.sh, or plain `apt full-upgrade`).
-  --no-upgrade)
-    echo "note: --no-upgrade is obsolete — package upgrades belong to your OS-native layer" >&2
-    ;;
-  --dry-run | -n) DRY=1 ;;
-  --only) [[ $# -ge 2 ]] || { echo "--only requires module names, e.g. --only zsh,nvim" >&2; exit 1; }; ONLY_RAW="$2"; ONLY_SEEN=1; shift ;;
-  --only=*) ONLY_RAW="${1#*=}"; ONLY_SEEN=1 ;;
-  --skip) [[ $# -ge 2 ]] || { echo "--skip requires module names, e.g. --skip tmux" >&2; exit 1; }; SKIP_RAW="$2"; SKIP_SEEN=1; shift ;;
-  --skip=*) SKIP_RAW="${1#*=}"; SKIP_SEEN=1 ;;
-  -h | --help) usage; exit 0 ;;
-  *) echo "unknown arg: $1" >&2; usage >&2; exit 1 ;;
-esac; shift; done
-
-# BLIB_DRY is the shared lib's own dry-run switch (core/lib/bootstrap-lib.sh): every
-# mutating helper — blib_link / blib_seed / blib_write_zshrc_loader — then PRINTS what
-# it would do and touches nothing.
-((DRY)) && export BLIB_DRY=1
 
 # ── core/ subtree present? (inline: can't source a lib out of core/ before this) ─
 # Validate the SPECIFIC paths we depend on (zsh modules + the two libs sourced next) so
@@ -95,6 +47,24 @@ unset _req
 source "$DOTFILES/core/lib/ux.sh"
 # shellcheck source=core/lib/bootstrap-lib.sh
 source "$DOTFILES/core/lib/bootstrap-lib.sh"
+
+# ── what this repo is (read by blib_main) ─────────────────────────────────────
+# shellcheck disable=SC2034
+BOOTSTRAP_NAME="Offense"
+# The band-85 role stage, tmux/role.conf and offensive/templates via blib_link_role_layer.
+# NO BOOTSTRAP_OS, and no os/ directory at all any more: band 80 belongs to your OS-native
+# repo (dotfiles-Debian, which covers Kali), not to this one.
+# shellcheck disable=SC2034
+BOOTSTRAP_ROLE=offensive
+# Report-only by contract ("installs NOTHING by default"): blib_set_login_shell sudo's
+# (chsh, /etc/shells), so the closing hook names the remedy (blib_login_shell_hint).
+# shellcheck disable=SC2034
+BOOTSTRAP_LOGIN_SHELL=0
+# lazy: the driver resolves no escalator and primes no keepalive. Only --install escalates,
+# and only on its Kali apt route — install_offensive does both itself at the point of need,
+# so a plain run, a --links-only run and the pipx/go route never see a sudo prompt.
+# shellcheck disable=SC2034
+BOOTSTRAP_SU=lazy
 
 # ── PATH prelude ──────────────────────────────────────────────────────────────
 # bootstrap runs in BASH, before any of the zsh layer exists, so the user-local bindirs
@@ -124,14 +94,8 @@ source "$DOTFILES/core/lib/bootstrap-lib.sh"
 # reporting a tool it watched get installed as missing — the exact failure the prelude was
 # written for. Creating the directory we install into is a statement of intent, not a guess.
 mkdir -p "$HOME/.local/bin" 2>/dev/null || true
-# It adds only directories that EXIST, so it is called AGAIN in _install_apt_absent, after
-# pipx may have created ~/.cargo/bin or a GOBIN elsewhere. Idempotent by construction.
-blib_user_bindirs_on_path
-
-# Apply any --only/--skip module selection now the validator (blib_select) exists;
-# it aborts on a malformed selector or an unknown group.
-if ((ONLY_SEEN)); then blib_select --only "$ONLY_RAW"; fi
-if ((SKIP_SEEN)); then blib_select --skip "$SKIP_RAW"; fi
+# blib_main runs blib_user_bindirs_on_path right after this; _install_apt_absent calls it
+# AGAIN, after pipx may have created ~/.cargo/bin or a GOBIN elsewhere. Idempotent.
 
 # ── /etc/os-release, read once ────────────────────────────────────────────────
 # NOT a gate. This bootstrap runs anywhere; the ID only decides which install ROUTE
@@ -146,6 +110,48 @@ _is_debian_family() {
   case "$OS_ID" in kali | debian | ubuntu | raspbian) return 0 ;; esac
   case " $OS_ID_LIKE " in *" debian "*) return 0 ;; esac
   return 1
+}
+
+# ── hooks (called by blib_main, in its order; shellcheck cannot see that) ─────
+# shellcheck disable=SC2329
+bootstrap_usage() {
+  cat <<'USAGE'
+bootstrap.sh — wire the OFFENSIVE (red) role layer onto an already-provisioned box.
+Distro-agnostic: installs NOTHING by default (your OS-native layer does that). Idempotent.
+
+  --install       OPT-IN: also install the offensive tool stack (apt on Kali; a pipx/go
+                  subset on other Debian-family boxes)
+  --no-check      skip the host-tool probe
+USAGE
+}
+# shellcheck disable=SC2329
+bootstrap_flag() {
+  case "$1" in
+  --no-check) DO_CHECK=0 ;;
+  --install) DO_INSTALL=1 ;;
+  # Accepted, not an error: --no-offensive used to mean "skip the heavy tool install",
+  # which is now the DEFAULT. Anyone (or any script) carrying the old flag should get
+  # the behaviour they asked for, not an abort — so say it is redundant and move on.
+  --no-offensive)
+    echo "note: --no-offensive is redundant — this bootstrap installs nothing unless --install is passed" >&2
+    ;;
+  # Likewise --no-upgrade: there is no apt full-upgrade here any more. Your OS-native
+  # layer owns that (dotfiles-Debian's bootstrap.sh, or plain `apt full-upgrade`).
+  --no-upgrade)
+    echo "note: --no-upgrade is obsolete — package upgrades belong to your OS-native layer" >&2
+    ;;
+  *) return 1 ;;
+  esac
+  return 0
+}
+# --links-only with --install is a contradiction rather than a preference, so it is
+# refused instead of silently honouring one of the two. The driver has parsed both by now.
+# shellcheck disable=SC2329
+bootstrap_guard() {
+  if ((BLIB_LINKS_ONLY && DO_INSTALL)); then
+    echo "--links-only and --install contradict each other: one wires symlinks only, the other installs packages" >&2
+    exit 1
+  fi
 }
 
 # ── Host-tool probe (report only — never installs) ───────────────────────────
@@ -254,6 +260,16 @@ check_tools() {
   return 0
 }
 
+# The probe, unless --no-check (the driver already skips this hook under --links-only).
+# Under --dry-run with --install, ALSO the installer's own preview: the driver never fakes
+# bootstrap_provision on a dry run, and install_offensive's dry branches print what each
+# route would do.
+# shellcheck disable=SC2329
+bootstrap_check() {
+  if ((DO_CHECK)); then check_tools; fi
+  if ((DO_INSTALL)) && [[ "${BLIB_DRY:-0}" != 0 ]]; then install_offensive; fi
+}
+
 # ── OPT-IN tool install (--install) ──────────────────────────────────────────
 # Two routes, and the difference is not cosmetic.
 #
@@ -278,15 +294,15 @@ check_tools() {
 # both names is a change to offensive.zsh, tracked separately.
 apt_install() { # resilient: bulk first, then per-package (apt aborts on one bad name)
   local -a pkgs=("$@")
-  if sudo apt-get install -y --no-install-recommends "${pkgs[@]}"; then return 0; fi
+  if blib_priv apt-get install -y --no-install-recommends "${pkgs[@]}"; then return 0; fi
   blib_say "bulk install hit a snag — retrying package-by-package"
   local p
   for p in "${pkgs[@]}"; do
     # Keep --no-install-recommends on the retry too: without it the fallback path
     # quietly pulls a much larger dependency set than the bulk path would have, so
     # WHICH path ran changed what ended up on the box.
-    sudo apt-get install -y --no-install-recommends "$p" ||
-      echo "   skipped (unavailable on this box?): $p"
+    blib_priv apt-get install -y --no-install-recommends "$p" ||
+      blib_note_fail "package '$p' — unavailable on this box? check: apt-cache policy $p"
   done
 }
 
@@ -302,7 +318,7 @@ _pipx_install() {
   fi
   blib_say "$pkg (pipx — provides $bin)"
   pipx install "$pkg" >/dev/null 2>&1 ||
-    echo "   pipx install $pkg failed — retry by hand: pipx install $pkg"
+    blib_note_fail "$bin — pipx install $pkg failed; retry by hand: pipx install $pkg"
 }
 
 # _go_install <module@version> <binary-it-provides>
@@ -317,7 +333,7 @@ _go_install() {
   fi
   blib_say "$bin (go install $mod)"
   GOBIN="$HOME/.local/bin" go install "$mod" >/dev/null 2>&1 ||
-    echo "   go install $mod failed — retry by hand: GOBIN=\"\$HOME/.local/bin\" go install $mod"
+    blib_note_fail "$bin — go install $mod failed; retry by hand: GOBIN=\"\$HOME/.local/bin\" go install $mod"
 }
 
 # _install_apt_absent — the tools NO route can apt-install, on EVERY route.
@@ -368,21 +384,28 @@ install_offensive() {
       blib_warn "$off_list parsed to zero package names"
       return 0
     }
-    if ((DRY)); then
+    if [[ "${BLIB_DRY:-0}" != 0 ]]; then
       blib_say "(dry run) would apt-install ${#off[@]} offensive packages (install/offensive-packages.txt)"
       blib_say "(dry run) would pipx-install (apt-absent, every route): roadrecon roadtx"
       return 0
     fi
-    # One password prompt up front, then keep the timestamp warm. Without this the first
-    # sudo can land many minutes into an otherwise unattended run — long after the
-    # operator walked away — and block on a prompt nobody is watching.
-    if command -v sudo >/dev/null 2>&1; then
-      sudo -v || { echo "sudo is required for the package install" >&2; return 1; }
-    fi
+    # Core's escalator and keepalive: resolve sudo/doas ONCE by absolute path (root runs
+    # directly), prime it with the prompt visible, then refresh the timestamp in the
+    # background. The one-shot `sudo -v` this replaces primed once and let it expire — on
+    # a run whose next line says "go get coffee" — so the first sudo after the timeout
+    # landed on a prompt nobody was watching. This branch owns the EXIT trap that stops
+    # the refresher; the apt route is the only privileged thing this bootstrap does.
+    blib_resolve_su --require || return 1
+    trap 'blib_sudo_keepalive_stop' EXIT
+    blib_sudo_keepalive_start || {
+      echo "sudo authentication failed — cannot install packages" >&2
+      return 1
+    }
     export DEBIAN_FRONTEND=noninteractive
     blib_say "apt update (the offensive stack is heavy — go get coffee)"
-    sudo apt-get update
+    blib_priv apt-get update
     apt_install "${off[@]}"
+    blib_sudo_keepalive_stop
     blib_ok "offensive packages requested: ${#off[@]}"
     blib_say "the apt list is Kali's. On a slim box some of these ship in kali-linux-default already."
     # Kali packages nearly this whole stack, but not ROADtools — and apt is the ONLY thing
@@ -401,7 +424,7 @@ install_offensive() {
   # Portable subset: Debian/Ubuntu (and any other ID_LIKE=debian box) that is not Kali.
   blib_say "not Kali (ID=${OS_ID:-unknown}) — installing the PORTABLE SUBSET only"
   blib_say "  the rest of install/offensive-packages.txt is Kali-packaged; see its UPSTREAM notes"
-  if ((DRY)); then
+  if [[ "${BLIB_DRY:-0}" != 0 ]]; then
     blib_say "(dry run) would pipx-install: impacket certipy-ad netexec bloodyAD ldapdomaindump bloodhound-ce"
     blib_say "(dry run) would pipx-install (apt-absent, every route): roadrecon roadtx"
     blib_say "(dry run) would go-install:   nuclei gobuster ffuf kerbrute"
@@ -440,26 +463,18 @@ install_offensive() {
   fi
 }
 
-wire_links() {
-  # Core's whole shipped surface, one call: the numbered zsh fragments, nvim + the vim
-  # fallback, tmux (+ tpm), starship, git, and the tools group.
-  blib_link_core "$DOTFILES" "$CONFIG"
-  # NO blib_link_os_layer, and no os/ directory at all any more: band 80 belongs to
-  # your OS-native repo (dotfiles-Debian, which covers Kali), not to this one.
+# Opt-in, and lazy about privilege: install_offensive resolves the escalator and runs the
+# keepalive itself, on the one route that needs them.
+# shellcheck disable=SC2329
+bootstrap_provision() {
+  if ((DO_INSTALL)); then install_offensive; fi
+}
 
-  # ── OFFENSIVE role layer ───────────────────────────────────────────────────
-  # One call, from Core (v4.13.1+). It links all three role destinations and drops a
-  # stale pre-v4 unnumbered link, honouring BLIB_DRY throughout:
-  #
-  #   offensive/offensive.zsh   → $CONFIG/zsh/85-offensive.zsh   (role band 85-94)
-  #   offensive/offensive.conf  → $CONFIG/tmux/role.conf         (sourced LAST by Core)
-  #   offensive/templates/      → $CONFIG/offensive/templates
-  #
-  # This replaces a hand-rolled block that had already drifted from dotfiles-Defense's
-  # copy of the same three links — Defense honoured the dry-run when dropping the stale
-  # link and this repo did not, so `--dry-run` mutated the box here and not there.
-  blib_link_role_layer "$DOTFILES" "$CONFIG" offensive
-
+# Links only this repo owns, after Core and the role layer and BEFORE the managed ~/.zshrc
+# is written: the pre-role-layer migration, the `prefix + e` popup script, the field
+# references surfaced at ~/.
+# shellcheck disable=SC2329
+bootstrap_wire_pre_loader() {
   # ── migrate a box bootstrapped before the role layer existed ───────────────
   # Two destinations this repo used to write are no longer ours, and both are left
   # DANGLING by the change above rather than updated:
@@ -481,7 +496,7 @@ wire_links() {
     # would never match it. Plain readlink reads the stored target verbatim, dangling or
     # not, which is the question being asked: does this link point into THIS checkout?
     [[ "$(readlink "$_stale" 2>/dev/null)" == "$DOTFILES"/* ]] || continue
-    if ((DRY)); then
+    if [[ "${BLIB_DRY:-0}" != 0 ]]; then
       blib_say "would drop stale link from the pre-role-layer wiring: $_stale"
     else
       rm -f "$_stale"
@@ -506,91 +521,31 @@ wire_links() {
   # Linked as a directory so htpx resolves entries/ relative to itself; run via `htpx`.
   [[ -d "$DOTFILES/offensive/companion" ]] && blib_link "$DOTFILES/offensive/companion" "$HOME/companion"
 
-  # The managed .zshrc loader (v4): param-less — it globs the numbered fragments, so the
-  # offensive stage rides band 85 (85-offensive.zsh) with no explicit module list.
-  #
-  # This ALSO seeds $ZDOTDIR/.zshrc (via the lib's _blib_seed_zdotdir_rc): a login zsh
-  # configured the XDG way reads $ZDOTDIR/.zshrc, not $HOME/.zshrc, and without the
-  # mirror a fresh login window fires zsh-newuser-install before our rc loads.
-  #
-  # Do NOT re-do that link by hand here. The lib's seeder carries an ELOOP guard for the
-  # INVERTED layout (~/.zshrc is itself a symlink to $ZDOTDIR/.zshrc): it compares
-  # resolved inodes with -ef, warns, and declines.
-  blib_write_zshrc_loader
+  # The `prefix + e` popup script. It CANNOT live under $CONFIG/tmux/scripts — that path
+  # is a whole-dir symlink to core/tmux/scripts (Core-owned, no offensive script) — so
+  # link it a level up, beside tmux.conf, and the binding points there. Gated on
+  # `blib_want tmux` so --skip tmux / --only … behave consistently with Core's own wiring.
+  blib_want tmux && [[ -f "$DOTFILES/offensive/tmux/tmux-eng.sh" ]] && blib_link "$DOTFILES/offensive/tmux/tmux-eng.sh" "$CONFIG/tmux/tmux-eng.sh"
 
-  # Install the local pre-commit core-guard so a hand-edit to the vendored core/ subtree
-  # is refused on THIS clone. .git/hooks isn't version-controlled, so a fresh clone has
-  # no guard until something installs one. The CI gate (core-integrity.yml) is the
-  # durable backstop; this is the fast local one.
-  #
-  # Gated on DRY by hand: blib_install_core_guard is the one helper here that does NOT
-  # honour BLIB_DRY (it writes .git/hooks/pre-commit unconditionally), so calling it from
-  # a --dry-run would break the "nothing was changed" contract.
-  if ((DRY)); then
-    blib_say "would install the core-guard pre-commit hook in ${DOTFILES##*/}"
-  else
-    blib_install_core_guard "$DOTFILES" || true
-  fi
-
-  blib_ok "symlinks wired$(blib_selected_note)"
+  # CTF/HTB cheatsheet + companion field references — surfaced at ~/ for htp/xdev/evade/ipp.
+  [[ -f "$DOTFILES/offensive/hacktheplanet" ]] && blib_link "$DOTFILES/offensive/hacktheplanet" "$HOME/hacktheplanet"
+  [[ -f "$DOTFILES/offensive/exploitdev" ]] && blib_link "$DOTFILES/offensive/exploitdev" "$HOME/exploitdev"
+  [[ -f "$DOTFILES/offensive/evasion" ]] && blib_link "$DOTFILES/offensive/evasion" "$HOME/evasion"
+  [[ -f "$DOTFILES/offensive/ippsec" ]] && blib_link "$DOTFILES/offensive/ippsec" "$HOME/ippsec"
+  # The structured red<->blue companion (the `htpx` browser + its entries/ tree).
+  # Linked as a directory so htpx resolves entries/ relative to itself; run via `htpx`.
+  [[ -d "$DOTFILES/offensive/companion" ]] && blib_link "$DOTFILES/offensive/companion" "$HOME/companion"
+  return 0
 }
 
-# --links-only is the "just wire symlinks" path, so it skips BOTH the probe and the
-# installer; without consulting LINKS_ONLY here the flag would be dead. --no-check skips
-# the probe independently. --links-only with --install is a contradiction rather than a
-# preference, so it is refused instead of silently honouring one of the two.
-if ((LINKS_ONLY && DO_INSTALL)); then
-  echo "--links-only and --install contradict each other: one wires symlinks only, the other installs packages" >&2
-  exit 1
-fi
-((DO_CHECK && !LINKS_ONLY)) && check_tools
-((DO_INSTALL && !LINKS_ONLY)) && install_offensive
-wire_links
-blib_wire_summary
-blib_say "engagement data lives in ~/engagements (outside this repo) — run \`mkengagement <name>\` to start one"
-
-if ((DRY)); then
-  blib_ok "dry run complete — nothing was changed."
-  exit 0
-fi
-
-# Everything above wires a zsh config. On a box with no zsh — or with zsh installed but
-# not the login shell — every step still "succeeds" and nothing ever loads. So this is
-# checked OUTSIDE check_tools: --no-check and --links-only skip a tool probe, but must
-# not silence a correctness guard. Non-fatal, matching how missing tools are handled.
-#
-# Deliberately NOT blib_set_login_shell: that helper is correct, but it sudo's (chsh, and
-# an append to /etc/shells). This bootstrap's contract is now report-only — "installs
-# NOTHING by default", line 4 — so it names the remedy and lets the operator run it.
-#
-# Best-effort, and it MUST NOT abort: this file runs under `set -euo pipefail`, where
-# pipefail makes `getent … | cut` return getent's status rather than cut's. getent exits
-# 2 when the user is not in the passwd DB, and is 127 when absent altogether — either
-# would take the whole bootstrap down on its last line, turning the non-fatal guard below
-# into the loudest possible failure. So every lookup is guarded, in descending order of
-# trust: getent, then /etc/passwd, then $SHELL.
-detect_login_shell() {
-  local user shell_field=""
-  user="$(id -un 2>/dev/null || true)"
-  if [[ -n "$user" ]]; then
-    if command -v getent >/dev/null 2>&1; then
-      shell_field="$(getent passwd "$user" 2>/dev/null | cut -d: -f7 || true)"
-    fi
-    if [[ -z "$shell_field" && -r /etc/passwd ]]; then
-      shell_field="$(awk -F: -v u="$user" '$1 == u { print $7; exit }' /etc/passwd 2>/dev/null || true)"
-    fi
-  fi
-  printf '%s' "${shell_field:-${SHELL:-}}"
+# What only this repo knows at the end. blib_login_shell_hint is the report-only guard
+# (returns non-zero when zsh is absent — the wiring is inert — so the driver prints no
+# "complete" line; sets the closing hint to "for this session: exec zsh" when zsh is
+# present but not the login shell).
+# shellcheck disable=SC2329
+bootstrap_closing() {
+  blib_say "engagement data lives in ~/engagements (outside this repo) — run \`mkengagement <name>\` to start one"
+  blib_login_shell_hint
 }
 
-login_shell="$(detect_login_shell)"
-if ! command -v zsh >/dev/null 2>&1; then
-  blib_warn "zsh is NOT installed — the config above is wired but inert; nothing reads ~/.zshrc"
-  blib_warn "  your OS-native layer owns package installation (dotfiles-Debian covers Kali)"
-elif [[ "$login_shell" != *zsh ]]; then
-  blib_warn "zsh is installed, but your login shell is ${login_shell:-unknown}"
-  blib_warn "  fix: chsh -s $(command -v zsh)  — takes effect at next login"
-  blib_ok "Offense bootstrap complete — for this session: exec zsh"
-else
-  blib_ok "Offense bootstrap complete — open a new shell, or: exec zsh"
-fi
+blib_main "$@"

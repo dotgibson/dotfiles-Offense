@@ -50,7 +50,7 @@ gcloud             upstream               # google-cloud-cli comes from Google's
 gh                 upstream               # dropped from kali-rolling; GitHub's apt repo or the release binary
 vault              upstream               # BUSL-licensed, so HashiCorp's repo rather than Debian/Kali
 kerbrute           upstream               # frozen at v1.0.3 (2019); release binary or `go install`
-evilginx           upstream               # evilginx2 AitM proxy — go install / release binary, never packaged
+evilginx           pkg:evilginx2          # AitM proxy; apt ships the evilginx2 package (3.3.0+ds1-0kali1 = upstream v3.3.0). The corpus emits only the `evilginx>` console prompt (chained via the repl line below), never a bare shell `evilginx`.
 Get-AADIntAccessTokenForMSGraph  upstream  # AADInternals cmdlet, operator-side from Windows (manifest, AADInternals)
 roadtx             upstream               # ROADtools' token half; pipx-installed by bootstrap on every route
 tfc-agent          upstream               # Terraform Cloud agent, run on infrastructure YOU control
