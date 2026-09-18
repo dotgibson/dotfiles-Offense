@@ -681,7 +681,19 @@ redup() {
   # cannot report its own version. See the `# gh → UPSTREAM` pointer under Cloud / SaaS /
   # CI-CD in install/offensive-packages.txt for the install route that IS right.
   #
-  # Two candidates evaluated, two rejected. The list stays empty by REASON, not by neglect.
+  # `pipx` is the THIRD candidate, and it fails on a WIDER line than katana or gh — it is not
+  # a go tool at all, so it could never join the loop below; it is recorded here because this
+  # ledger is redup's coverage rationale, not just its go roster. redup's real blind spot is
+  # pipx, not go: roadrecon/roadtx (the one thing `--install` REALLY installs on every route)
+  # and bbot (an UPSTREAM pipx pointer with a HAVE_BBOT probe) are apt-UNOWNED, so `up` cannot
+  # touch them and redup does not either. The tempting fix — a `pipx upgrade` step — is where
+  # it dies: `pipx upgrade` is NOT the tool's own updater (roadtx/bbot ship none; pipx does),
+  # so adopting it would widen redup's contract from "run each tool's own updater" to "drive a
+  # package manager" — the exact ownership line every skip above (apt's binaries → `up`) exists
+  # to respect. Cadence is only moderate (roadtx: 3 releases in 10 months), so the miss is
+  # small. Deferred, not adopted — Entra is the moving surface the manifest already flags.
+  #
+  # Three candidates evaluated, three rejected. The list stays empty by REASON, not by neglect.
   local pair bin mod
   local -a go_fast_movers=()
   # Gate on the LIST, not on `go`. With the list empty (today), the old code still
