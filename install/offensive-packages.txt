@@ -63,15 +63,19 @@ mitm6                # IPv6/DNS takeover: spoofs DHCPv6, becomes the segment's D
 coercer              # NTLM coercion trigger (PetitPotam/PrinterBug/DFSCoerce/ShadowCoerce) — the piece that KICKS the relay/ESC8 chain (responder/ntlmrelayx have no trigger of their own)
 krbrelayx            # dirkjanm's Kerberos-relay toolkit (printerbug/krbrelayx/addspn/dnstool) — now apt-packaged, so printerbug is no longer a git-clone. The Kerberos-relay COMPLEMENT to coercer's trigger + ntlmrelayx's NTLM relay, not a dup
 impacket-scripts     # ~60 scripts: secretsdump, psexec, ntlmrelayx, GetUserSPNs…
-evil-winrm           # ⚠ CURRENCY, track-don't-act: kali is 3.9-0kali2 while upstream cut v4.1 on
-#                    # 2026-09-03 (there is no v4.0 release — the tags jump 3.9 → 4.1). Recorded
-#                    # rather than acted on: v4.1 renames no flags and breaks no invocation, so
-#                    # nothing in hacktheplanet's WinRM fold goes stale, and a major-looking bump
-#                    # that changes no interface is not a reason to leave apt.
-#                    # TWO of its fixes are felt mid-op if you hit them — a keepalive so Windows
-#                    # stops dropping idle shells, and a path-traversal fix in `download`. Neither
-#                    # is a reason to hand-build; both are a reason to expect the apt build to drop
-#                    # an idle shell, which reads as a network problem and isn't one.
+evil-winrm           # ⚠ CURRENCY, gap now CLOSED (track-don't-act, and the numbers are spent):
+#                    # kali is 4.1-0kali1 (migrated 2026-09-14), at upstream's v4.1 head (cut
+#                    # 2026-09-03; there is no v4.0 release — the tags jump 3.9 → 4.1). It was
+#                    # recorded rather than acted on and rightly so: v4.1 renames no flags and
+#                    # breaks no invocation, so nothing in hacktheplanet's WinRM fold went stale,
+#                    # and a major-looking bump that changed no interface was never a reason to
+#                    # leave apt.
+#                    # THE OLD SUB-NOTE IS NOW A TRAP, kept as a closed gap not deleted (the ffuf
+#                    # shape): the pre-4.1 apt build lacked v4.1's keepalive, so an idle shell it
+#                    # dropped read as a network problem and wasn't one. That keepalive and the
+#                    # `download` path-traversal fix are PRESENT as of 4.1-0kali1 — so a dropped
+#                    # idle shell now IS a network signal, and reading it as the old apt quirk
+#                    # would mis-diagnose a real drop.
 certipy-ad           # AD CS abuse (ESC1–ESC17: ESC13/15/16 landed in v5.0, ESC17 in v5.1.0)
 python3-ldapdomaindump  # apt name is python3-ldapdomaindump (bare 'ldapdomaindump' isn't packaged),
 #                    # but the BINARY is bare `ldapdomaindump` — which is also the name bootstrap's
@@ -141,9 +145,11 @@ bloodhound           # ⚠ THE `NOT apt` THIS BLOCK USED TO ASSERT IS FALSE. The
 #                    # kali-linux-EVERYTHING only (the evilginx2 criterion), so a normal box has no
 #                    # server without this line. It also settles azurehound's `>= 9.0.0` API
 #                    # constraint below on the apt route: 9.6.0 clears it.
-#                    # ⚠ CURRENCY, stated as a HABIT not a number (the sliver lesson): kali-dev is
-#                    # already carrying 9.7.0~rc4, so this moves. Check the server's own version
-#                    # against SpecterOps' releases rather than trusting a head written here.
+#                    # ⚠ CURRENCY, stated as a HABIT not a number (the sliver lesson): this server
+#                    # moves fast — an `~rc` in apt trails a cut final, `~` sorts below it, and a
+#                    # later `up` closes the gap. Check the server's own version against SpecterOps'
+#                    # releases rather than trusting a head written here (a number named here rotted
+#                    # inside a month once already).
 #                    # ⚠ THE NAME IS SAFE ON BOTH SUITES, which is the thing worth checking before
 #                    # trusting a bare `bloodhound` in a manifest: `kali-last-snapshot` carries
 #                    # 9.2.2-0kali1 with the SAME "BloodHound CE" description and the same
@@ -555,8 +561,9 @@ adaptixc2            # AdaptixC2 (Adaptix-Framework/AdaptixC2) — Go teamserver
 #                    # ⚠ CURRENCY: apt ships a git SNAPSHOT (1.1~git20260208, migrated Mar 2026).
 #                    # Upstream's Releases PAGE is empty, but TAGS are not: v1.0 (2026-01-03), then
 #                    # v1.1 and v1.2 (both 2026-03-04). Nor does it roll on `main` — `main` last moved
-#                    # 2026-03-04 and work lands on version branches (dev-v1.3 May 2026, testing-v2.0
-#                    # Aug 2026; that Aug push is testing-v2.0, not main). So the apt snapshot predates
+#                    # 2026-03-04 and work lands on version branches, not main (today: a v1.2 branch
+#                    # and testing-v2.0, the Aug 2026 push; the dev-v1.3 branch this note used to
+#                    # name is gone). So the apt snapshot predates
 #                    # the v1.1 tag (Debian ordering sorts 1.1~git20260208 BEFORE 1.1), sits a minor
 #                    # behind tagged v1.2, and two behind what is in flight — and there IS a tag to
 #                    # judge that by. Profile churn is exactly what an old snapshot misses, which is
@@ -910,17 +917,23 @@ proxychains4         # `proxychains4` — the rofl0r/proxychains-ng fork, and ap
 #                    # proxychains4 than "the bare name is only a virtual Provides:".
 chisel               # TCP/UDP-over-HTTP tunnel. The one line in this block that had no status at
 #                    # all, which is why it is now the one that most needed one.
-#                    # ⚠ APT SHIPS A PRE-RELEASE. kali-rolling is 1.12.0~rc2-0kali1 (2026-07-23) and
-#                    # kali-dev 1.12.0~rc3-0kali1; upstream cut v1.12.0 FINAL on 2026-08-29, two RCs
-#                    # ahead of what you have. This is the opposite of the ffuf case above: there
-#                    # apt is behind a live upstream, here apt is ahead of its own stable line.
-#                    # ⚠ 1.12.0 BREAKS FLAGS, so know them before you reach for one from memory:
-#                    # `--auth` now REQUIRES `<user>:<pass>` and FAILS STARTUP on a missing colon;
-#                    # SOCKS5 users need an authfile entry matching `socks`; fingerprints must be
-#                    # full SHA256 (truncated MD5 prefixes are rejected); a client exhausting
-#                    # --max-retry-count now exits non-zero. Nothing SHIPPED here breaks — the
-#                    # hacktheplanet lines and the corpus' reverse-tunnel-chisel entry both use the
-#                    # bare `chisel server -p 8000 --reverse` / `chisel client … R:socks` form.
+#                    # ⚠ APT IS NOW AT (OR A HAIR AHEAD OF) UPSTREAM'S NEWEST TAG. kali-rolling and
+#                    # kali-dev both carry 1.12.1-0kali2 (migrated 2026-09-16). The old reading here
+#                    # — "apt ships a pre-release, two RCs ahead of upstream's stable line" — is dead:
+#                    # that was the 1.12.0~rc2 snapshot, and an `up` since the 16th replaced it with
+#                    # the 1.12.1 release. Upstream cut a v1.12.1 TAG but no release OBJECT for it
+#                    # yet, so `releases/latest` still reads v1.12.0 (medium confidence on that
+#                    # sub-point; the kali version is firm) — either way apt is level with or a step
+#                    # past upstream's newest tag, not behind it.
+#                    # ⚠ 1.12.x's FLAG BREAKS ARE LIVE ON THE BINARY YOU HAVE, not hypothetical —
+#                    # after any `up` since the 16th they apply today: `--auth` REQUIRES
+#                    # `<user>:<pass>` and FAILS STARTUP on a missing colon; SOCKS5 users need an
+#                    # authfile entry matching `socks`; fingerprints must be full SHA256 (truncated
+#                    # MD5 prefixes are rejected); a client exhausting --max-retry-count exits
+#                    # non-zero. Nothing SHIPPED here breaks — the hacktheplanet lines and the
+#                    # corpus' reverse-tunnel-chisel entry both use the bare
+#                    # `chisel server -p 8000 --reverse` / `chisel client … R:socks` form — but a
+#                    # flag typed from memory fails today.
 #                    # THE pspy SPLIT APPLIES: apt's chisel is a host-arch, dynamically-linked
 #                    # Debian Go build for YOUR box; what you upload to a target is upstream's
 #                    # static release binary. Mixing is safe — the wire protocol is unchanged and
