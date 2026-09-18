@@ -138,7 +138,9 @@ cd ~/dotfiles-Offense
 `core/` is a vendored copy and is **already present** in a clone — there is no
 submodule step. Flags: `--install` (the opt-in tool install — apt from
 `install/offensive-packages.txt` on Kali, a pipx/go subset elsewhere), `--links-only`
-(just re-create symlinks), `--no-check` (skip the host-tool report), `--dry-run`.
+(just re-create symlinks), `--no-check` (skip the host-tool report), `--dry-run`,
+`--strict` (exit 1 if any `--install` step did not complete — misses are listed either
+way).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
