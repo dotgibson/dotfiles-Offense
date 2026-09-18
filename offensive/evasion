@@ -176,6 +176,8 @@ Reference
 #                              domain-fronting-cdn, https-beacon-sliver, mtls-c2-sliver,
 #                              web-service-c2-telegram. This file has the concepts; those
 #                              entries have the command lines
+#                              (dga-c2-domains is in the corpus too but sits outside this list:
+#                              a domain-generation algorithm is C2 resilience, not egress-filter bypass.)
 #   ~/exploitdev     (`xdev`)  binary exploitation (BOF/SEH/egghunter/shellcode)
 #   ~/ippsec         (`ipp`)   THE METHOD: recon loop, shell stabilization, unsticking playbook
 #   OFFENSIVE-METHODOLOGY.md   the phase -> ATT&CK -> tool map

@@ -103,12 +103,12 @@ view-counts: ## Do the views still state the corpus's real red/blue/projected co
 	@# about a VENDORED corpus. gen-views --check compares block CONTENT and never counts
 	@# blocks; markdownlint cannot tell 101 from 102. Two of those files carry their own
 	@# caveat that these go stale on every companion-sync — they did, twice (#261, #262).
-	@# This is that caveat, executed. Semantic buckets (56 cloud, 13 C2, 7 Linux, 69/76,
+	@# This is that caveat, executed. Semantic buckets (59 cloud, 13 C2, 7 Linux, 72/79,
 	@# the percentages) are NOT checked: nothing in the entries marks an entry "cloud".
 	@./test/check-view-counts.sh
 
 corpus-commands: ## Does every command in the red corpus resolve to something? (offline)
-	@# 84 of the corpus' 103 red entries are unprojected, so gen-views --check (which
+	@# 87 of the corpus' 106 red entries are unprojected, so gen-views --check (which
 	@# byte-compares the 19 projected blocks) has never seen their command lines, and
 	@# check-packages.sh reads the manifest rather than the corpus. `impacket-petitpotam`
 	@# and `dfscoerce` shipped through that gap. See issue #208.

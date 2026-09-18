@@ -278,6 +278,33 @@ _set_scope() { # _set_scope <comma-list: shell,nvim,atuin | all | none>
     SCOPE_NVIM=1
     SCOPE_ATUIN=1
   }
+  # ── SCOPE_TOOLING: DERIVED from the three axes above, deliberately not a fourth token ──
+  # The cross-cutting bash-tooling fragments (the fan-out, the scaffold, the generators, the
+  # vocabulary register) belong to no single area: they test scripts/ itself, which can
+  # re-gate any shipped module. They were gated by NOTHING, which made `none` — documented as
+  # the cheapest scope — cost 375.3s, of which 311.9s (83%) was five such fragments. That is
+  # what made the --json self-run fixture in scripts/test/52-atuin-autostart.sh expensive
+  # enough to read as a hang on macOS (#467).
+  #
+  # ON FOR ANY AREA, off only for the explicit minimal run. That is the whole rule, and it is
+  # chosen so CI COVERAGE DOES NOT MOVE: ci.yml builds its scope from ci-classify.sh, whose
+  # `scripts/*` arm sets shell=true — so every change that can reach this tooling already
+  # selects an area, and these fragments still run. The one case that changes is a docs-only
+  # diff, where ci-classify yields no area and ci.yml passes `none`; the generators' OUTPUT is
+  # still held by audit-core.sh §9d/§9g/§9h/§9i/§9j, which are static sections outside the
+  # scope system entirely, so what is skipped is behavioural tests of generators that a
+  # markdown edit cannot reach.
+  #
+  # A TOKEN would have been the wrong shape. It would add a fourth axis to ci-classify.sh's
+  # output, whose exact three-line format scripts/test/22-ci-classify.sh pins, and to three
+  # separate scope assemblies in ci.yml — a coordinated five-file change whose failure mode is
+  # a silently narrowed CI run. Derived, the fail-safe paths above carry it for free: an
+  # unknown token and an empty scope both force all three axes on, so they force this on too.
+  # SC2034: assigned here and read by the SOURCED test fragments, which ShellCheck cannot
+  # follow from this file. The three axes above escape the same diagnostic only because
+  # the condition on this very line reads them.
+  # shellcheck disable=SC2034
+  if ((SCOPE_SHELL || SCOPE_NVIM || SCOPE_ATUIN)); then SCOPE_TOOLING=1; else SCOPE_TOOLING=0; fi
 }
 
 # Pre-seed the EMPTY plugin dirs the hermetic zsh tests + bench need so 45-plugins.zsh's
@@ -551,6 +578,62 @@ _core_bash4_hits() { # _core_bash4_hits <file>
   ' "$f" 2>/dev/null
 }
 
+# ── _core_bash32_parse_hits: syntax bash 3.2 cannot PARSE ────────────────────
+# _core_bash32_parse_hits <file> — print "<line>:<what>" for every construct bash 3.2's
+# PARSER rejects although bash 4+ accepts it. Silence = clean. §5k calls this beside
+# _core_bash4_hits above, and the two are deliberately NOT merged: that one covers features
+# bash 3.2 does not HAVE, which parse and then fail at run time (or silently misbehave).
+# This one covers a file 3.2 refuses to parse AT ALL — `bash -n` rejects it and nothing in
+# the script runs. Its doc comment promises "a builtin or a syntax bash 3.2 does not have",
+# which this is not, and a gate's contract is worth more than one fewer function.
+#
+# ONE ENTRY, measured rather than reasoned — #1075 hit it, and the boundary was mapped by
+# building bash 3.2.0 and parsing the variants. All four parse on bash 5:
+#
+#   x=$(case $v in a) echo A;; esac)             3.2: syntax error near `;;', ALWAYS
+#   x="$(case $v in a) echo A;; esac)"           3.2: fine — until an arm contains a '
+#   x="$(case $v in a) echo "it's";; esac)"      3.2: unexpected EOF looking for matching '
+#   x="$(case $v in (a) echo "it's";; esac)"     3.2: FINE — the leading ( is the fix
+#
+# So the double quotes are what make it WORK, not what break it, and the quoted form is a
+# TRAP rather than a hazard: it parses for as long as no arm says anything possessive, and
+# starts failing the moment someone writes "the snapshot's copy" in a verdict string. That
+# is how it arrived — a report-writing line in a research script, green on bash 5 through
+# `bash -n`, ShellCheck and three Linux legs, red only on macOS, eleven minutes in.
+#
+# THE NEEDLE IS THE BARE PATTERN, not the apostrophe. A leading `(` on every pattern makes
+# both shapes parse (measured), so the rule has one fix and no judgement call — and keying
+# on the apostrophe would instead make the gate fire on the arm text rather than on the
+# construct, which is the wrong thing to teach. `while`, `if` and `until` bodies inside a
+# substitution are unaffected, and so are backticks: it is `case` alone, because 3.2
+# re-scans an arm looking for the `)` that ends the substitution.
+#
+# WHAT IT DOES NOT COVER, named so a green §5k is not read as promising more:
+#   * a `case` appearing LATER inside a multi-command substitution (`$(setup; case …)`).
+#     The needle anchors on the substitution OPENING with `case`, which is the shape that
+#     occurs; "is this inside $( )" is not a question a line-oriented scan can answer.
+#   * a substitution whose subject holds parentheses (`$(case "$(f)" in a) …)`). The
+#     `[^()]*` below is what excludes it, and it is load-bearing in the other direction:
+#     without it a prose arm — `echo "built in place"` — supplies a second ` in ` and the
+#     rule fires on CORRECT code, which is the one thing a gate must never do.
+#
+# The needle is assembled from fragments for the same reason as _core_bash4_hits: this file
+# is itself scanned, and a rule that reds its own definition is one that gets reverted.
+_core_bash32_parse_hits() { # _core_bash32_parse_hits <file>
+  local f="${1:-}"
+  [ -f "$f" ] || return 0
+  awk -v o='$' -v p='(' '
+    {
+      l = $0
+      sub(/[[:space:]]*#.*$/, "", l)   # comment-stripped, as above: prose about the rule is not the rule
+      if (l ~ /^[[:space:]]*$/) next
+      # <$>( <space>* case <space> …no parens… <space> in <space>+ <not a paren>
+      if (l ~ ("\\" o "\\" p "[[:space:]]*case[[:space:]][^()]*[[:space:]]in[[:space:]]+[^([:space:]]"))
+        print NR ":a case opening a command substitution needs ( on every pattern — bash 3.2 cannot parse the bare form"
+    }
+  ' "$f" 2>/dev/null
+}
+
 # ── _core_owned_block_hits: portable logic that Core owns, re-implemented locally ──
 # _core_owned_block_hits <file> — print `<line>:<rule-id>` for every place <file>
 # re-implements a block Core now owns. Silence = clean. Consumed by the reusable
@@ -674,6 +757,34 @@ _core_gitleaks_policy_hits() { # _core_gitleaks_policy_hits <file>
     printf '%s\n' "$line" | grep -qE '(^|[[:space:]])(-c(=|[[:space:]])|--config(=|[[:space:]]))' && continue
     printf '%s:%s\n' "$n" "no-config"
   done <"$f"
+}
+
+# ── _core_vendor_consumer_hits: does a sibling actually RUN a vendored entry script? ──
+# _core_vendor_consumer_hits <repo-dir> <basename> — print each RUNNABLE repo-owned file in
+# <repo-dir> that names <basename> on a non-comment line, one per line, relative to the repo.
+# The population is what a repo EXECUTES: Makefile, .pre-commit-config.yaml, its workflows,
+# test/ and tests/, and top-level *.sh. Prose does not count (README, CHANGELOG), and neither
+# does the vendored core/ tree itself — a mention is not a consumer, which is the finding
+# audit §5l exists for (#975): scripts/check-links.sh shipped to nine boxes for nine releases
+# with its consumer named in core.vendor "as intent rather than as a file", and nothing ran it.
+# Comment lines are skipped the way _core_gitleaks_policy_hits skips them, `@#` included, so
+# a recipe's own explanation of why it calls the script cannot satisfy the check.
+_core_vendor_consumer_hits() { # _core_vendor_consumer_hits <repo-dir> <basename>
+  local dir="${1:-}" name="${2:-}" f line body
+  [[ -d "$dir" && -n "$name" ]] || return 0
+  for f in "$dir"/Makefile "$dir"/.pre-commit-config.yaml "$dir"/.github/workflows/*.yml \
+    "$dir"/.github/workflows/*.yaml "$dir"/test/*.sh "$dir"/tests/*.sh "$dir"/*.sh; do
+    [[ -f "$f" ]] || continue # unmatched glob stays literal (nullglob is off)
+    while IFS= read -r line; do
+      body="${line#"${line%%[![:space:]]*}"}"
+      case "$body" in '#'* | '@#'*) continue ;; esac
+      case "$line" in *"$name"*)
+        printf '%s\n' "${f#"$dir"/}"
+        break
+        ;;
+      esac
+    done <"$f"
+  done
 }
 
 # ── _audit_ls: the file set the CONTENT gates inspect ─────────────────────────
@@ -1049,7 +1160,7 @@ _core_helper_called() { # _core_helper_called <file> <helper>
 # checkout, and it costs one subprocess rather than a stat per file. Both sides are
 # normalised through `cd`/`pwd -P` before the prefix test: git records the path it was
 # HANDED, which can differ from <repo-root>'s spelling by a symlink, and a textual compare
-# would then silently prune nothing — the vacuous-pass shape §1c's own canary exists for.
+# would then silently prune nothing — the vacuous-pass shape §1f's own canary exists for.
 #
 # SCOPE IS LINKED WORKTREES OF THIS REPO. An unrelated clone parked under this tree is not in
 # git's registry and stays reportable on purpose: nobody registered it, so "is this meant to
@@ -2260,15 +2371,15 @@ _core_make_gate_hits() { # _core_make_gate_hits <repo-root>
 # WHY IT KEEPS COMING BACK, and what that means for the pattern. There are three genuinely
 # different correct numbers here, and prose rarely says which is meant:
 #
-#   · 9  — repos that vendor `core/` (scripts/os-repos.txt; 7 OS + 2 Role)
-#   · 8  — OS-native repos, INCLUDING dotfiles-Windows, which vendors nothing
-#   · 11 — the whole system (8 OS + 2 Role + dotfiles-core)
+#   · 10 — repos that vendor `core/` (scripts/os-repos.txt; 8 OS + 2 Role)
+#   · 9  — OS-native repos, INCLUDING dotfiles-Windows, which vendors nothing
+#   · 12 — the whole system (9 OS + 2 Role + dotfiles-core)
 #
 # So "eight" was never simply a stale nine: it is someone correctly counting OS repos and
 # attaching it to the FAN-OUT, which is a different set. A gate keyed on the bare number
 # would therefore red on `85-escalation.sh`'s "eight repos rely on sudo-first" (nine minus
 # Alpine — correct), on #775's "eleven defects across eight repos" (the lint-call callers —
-# correct), and on every "eleven-repo system". That gate would be noise, and noise is how a
+# correct), and on every "twelve-repo system". That gate would be noise, and noise is how a
 # check teaches the fleet to ignore it.
 #
 # KEYED ON THE CLAIM, NOT THE NUMBER. A count is only checkable when the sentence says
@@ -2306,7 +2417,7 @@ _core_fanout_count_hits() { # _core_fanout_count_hits <repo-root> <live-count>
       }
       # claim_num(s) — the repo count a fan-out claim in <s> applies, or -1 for no claim.
       # The verb must GOVERN the count: a short run of words between them is allowed (the
-      # claims in-tree read "fans out to all nine Core-vendoring repos", "vendors into
+      # claims in-tree read "fans out to all ten Core-vendoring repos", "vendors into
       # nine repos", and the older "nine OS repos" the regex still has to catch),
       # but not a sentence boundary, which would let an unrelated later number match.
       function claim_num(s,   claim, tail) {
@@ -2343,7 +2454,7 @@ _core_fanout_count_hits() { # _core_fanout_count_hits <repo-root> <live-count>
           got = claim_num(joined " " $0)
         }
         if (got > 0 && got != want) {
-          printf "%s:%d: a fan-out claim says %s repos; scripts/os-repos.txt lists %d — Core vendors into the %d Core-vendoring repos (7 OS + 2 Role; dotfiles-Windows vendors no core/)\n", \
+          printf "%s:%d: a fan-out claim says %s repos; scripts/os-repos.txt lists %d — Core vendors into the %d Core-vendoring repos (8 OS + 2 Role; dotfiles-Windows vendors no core/)\n", \
             f, FNR, word, want, want
         }
         prev = $0

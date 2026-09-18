@@ -769,6 +769,39 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **`bootstrap.sh` runs on Core's bootstrap driver, `blib_main`** (dotgibson/dotfiles-core#986).
+  The shared half — the flag loop, the Core symlink surface, the band-85 role stage, the
+  managed `~/.zshrc`, the closing report — now runs from one definition in
+  `core/lib/bootstrap-lib.sh`. This file declares what it is (`BOOTSTRAP_ROLE=offensive`,
+  `BOOTSTRAP_LOGIN_SHELL=0`, and `BOOTSTRAP_SU=lazy`: the driver resolves no escalator and
+  primes no keepalive, because only `--install`'s Kali apt route needs them and
+  `install_offensive` does both itself at the point of need) and keeps only what is
+  offensive: the host-tool probe as `bootstrap_check` (which also runs the installer's own
+  dry-run preview under `--dry-run --install`), the opt-in stack as `bootstrap_provision`
+  (`install_offensive` unchanged), the pre-role-layer migration, the `prefix + e` popup
+  script and the `~/` field references as `bootstrap_wire_pre_loader`, the engagement note
+  plus the login-shell guard — now Core's `blib_login_shell_hint`, which Defense carried
+  the same copy of — as `bootstrap_closing`, and `--install` / `--no-check` plus the two
+  deprecation shims through `bootstrap_flag`. The `--links-only` + `--install`
+  contradiction is refused in `bootstrap_guard` as before. 619 → 551 lines. One convention
+  change: an unknown flag exits **2** (usage error), not 1. Same links, same routes, same
+  exit codes otherwise; a plain run still never prompts for sudo.
+
+- **`bootstrap.sh --install` runs on Core's escalation, sudo-keepalive and failure-tally
+  helpers instead of bare `sudo`** (dotgibson/dotfiles-core#973). The Kali apt route
+  hard-coded `sudo` three times and primed it with a one-shot `sudo -v` whose own comment
+  promised to "keep the timestamp warm" — one line before "go get coffee". It now resolves
+  the escalator once with `blib_resolve_su` (root runs directly, else `sudo`, else `doas`, by
+  absolute path), runs the three apt calls through `blib_priv`, and keeps the timestamp warm
+  for real with `blib_sudo_keepalive_start` / `_stop`. Every best-effort install — the apt
+  per-package fallback, each `pipx install`, each `go install` — now records a miss via
+  `blib_note_fail` instead of an indented `echo`, `blib_failures_report` prints them together
+  after the wiring, and a new `--strict` turns a non-empty tally into exit 1. Without it the
+  exit code is unchanged: the offensive tools are optional; zsh is not. Closes this repo's
+  rows in Core's `audit-core.sh` §5f ledger, including the keepalive row it had been exempt
+  from on the theory that a role repo installs no long package sets — the apt route is that
+  set.
+
 - **BREAKING — `make core-sync` no longer pulls; Core arrives by fan-out
   ([dotfiles-core#676](https://github.com/dotgibson/dotfiles-core/issues/676)).**
   `scripts/sync-core.sh` is now report-only: it says how far behind `core/` is and how
