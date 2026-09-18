@@ -33,9 +33,10 @@
 #
 # WHAT IT CANNOT CHECK — deliberately, and this is not a backlog. Every remaining figure in
 # those paragraphs is a SEMANTIC CLASSIFICATION of an entry's content, not a property of
-# the tree: 59 cloud/SaaS/CI-CD red, 13 C2-egress/Impact, 7 Linux post-ex, 71 blue entries
-# with no Windows event ID, 72 red corpus-only, 79 blue corpus-only, 151 combined, and the
-# 68%/75% shares. Nothing in entries/*.md marks an entry "cloud"; a human read the corpus
+# the tree: 59 cloud/SaaS/CI-CD red, 13 C2-egress/Impact, 7 Linux post-ex, 72 red
+# corpus-only, 79 blue corpus-only, 151 combined, and the 68%/75% shares. (The
+# no-event-ID count is now derived and checked — claim 3 — so it is no longer here.)
+# Nothing in entries/*.md marks an entry "cloud"; a human read the corpus
 # and assigned those buckets. Re-implementing that judgement in grep would be wrong more
 # often than the prose is. Percentages are ungated for a second reason: which way to round
 # a share that lands on .5 is an editorial call, and a gate that overrules it is a
@@ -132,9 +133,16 @@ blue_projected="$blue_gen"
 blue_unprojected=$(( blue_total - blue_projected ))
 corpus_total=$(( red_total + blue_total ))
 
+# Blue entries carrying no Windows event ID: `event_ids: []` in frontmatter. Counted
+# over tracked files the same way as blue_total, so an untracked scratch entry cannot
+# skew it. This promotes claim 3's no-event-ID figure out of the semantic blind spot
+# (it used to be a `-` slot the gate could not derive).
+blue_no_event_id="$(git ls-files -z -- "$BLUE_DIR/*.md" | xargs -0 grep -lE '^event_ids: \[\]' | wc -l)"
+
 say "corpus          : ${red_total} red / ${blue_total} blue  (${corpus_total} overall)"
 say "projected       : ${red_projected} into ${HTP} / ${blue_projected} into ${PT}"
 say "blue unprojected: ${blue_unprojected}"
+say "blue no-event-ID: ${blue_no_event_id}"
 
 # ── claim table ──────────────────────────────────────────────────────────────
 flatten() { sed -E 's/^[[:space:]]*>+[[:space:]]?//' "$1" | tr '\n' ' ' | tr -s '[:space:]' ' '; }
@@ -205,11 +213,12 @@ check "$PT" "PURPLE-TEAM scope note" \
   "${blue_unprojected}:blue_total - blue_projected = ${blue_total} - ${blue_projected}"
 
 # 3 — the same unprojected figure, restated one paragraph later. It can drift on its own,
-#     so it gets its own claim. The 71 beside it is semantic (see the header) — slot `-`.
+#     so it gets its own claim. The no-event-ID count beside it used to be a semantic `-`
+#     slot; it is now derived from the tree (grep '^event_ids: []') and checked.
 check "$PT" "PURPLE-TEAM no-event-ID breakdown" \
   'Of those [0-9]+, \*\*[0-9]+\*\* genuinely carry no Windows event ID' \
   "${blue_unprojected}:blue_total - blue_projected = ${blue_total} - ${blue_projected}" \
-  -
+  "${blue_no_event_id}:blue entries with 'event_ids: []' (git ls-files | grep -lE '^event_ids: \[\]')"
 
 # 4 — OFFENSIVE-METHODOLOGY.md's corpus-share sentence. Only the two DENOMINATORS are
 #     derivable; the numerators (72, 79) and the percentages are semantic.
@@ -264,8 +273,8 @@ if ((drift)); then
   bad "  dotgibson/htpx, overwritten on the next sync)."
   bad ""
   bad "  Cross-check the SEMANTIC figures by hand while you are in there — the gate does"
-  bad "  not know them: 59 cloud/SaaS/CI-CD, 13 C2-egress/Impact, 7 Linux, 71 no-event-ID,"
-  bad "  79 blue corpus-only, and the 68%/75% shares."
+  bad "  not know them: 59 cloud/SaaS/CI-CD, 13 C2-egress/Impact, 7 Linux, 79 blue corpus-only,"
+  bad "  and the 68%/75% shares."
   bad ""
   bad "  The ${red_projected} entries currently projected into ${HTP}:"
   grep -oE '^# companion:gen .*' "$HTP" | sed 's/^# companion:gen /      /' >&2
