@@ -231,7 +231,7 @@ Project Link: [dotgibson](https://github.com/dotgibson/)
 [license-shield]: https://img.shields.io/github/license/dotgibson/dotfiles-Offense.svg?style=plastic
 [license-url]: https://github.com/dotgibson/dotfiles-Offense/blob/main/LICENSE
 [docs]: https://dotgibson.github.io/dotfiles-web/docs
-[python-shield]: https://img.shields.io/github/v/release/python/cpython?style=plastic&logo=python&logoColor=white&label=Python&labelColor=3776AB&color=3D59A1
+[python-shield]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fendoflife.date%2Fapi%2Fpython.json&query=%24%5B0%5D.latest&prefix=v&label=Python&style=plastic&logo=python&logoColor=white&labelColor=3776AB&color=3D59A1
 [python-url]: https://github.com/python/cpython
 [kali-shield]: https://img.shields.io/badge/Kali_Linux-557C94?style=plastic&logo=kalilinux&logoColor=white
 [kali-url]: https://www.kali.org
