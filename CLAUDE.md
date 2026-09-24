@@ -8,7 +8,7 @@ vendors only what a machine actually runs.
 
 ## What this repo is
 
-`dotfiles-Offense` is the **offensive (red) Role layer** of an **eleven-repo dotfiles
+`dotfiles-Offense` is the **offensive (red) Role layer** of a **twelve-repo dotfiles
 system** built on a three-layer model (Core → OS-native → Role). It is the mirror of
 `dotfiles-Defense`: engagement scaffolding and attacker tooling, stacked on whatever
 OS-native layer the box already runs.

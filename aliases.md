@@ -17,12 +17,14 @@ OS-native layer — see [its docs][debian] rather than a copy that would drift.
 
 Aliases and functions live in `offensive/offensive.zsh`. Most tool shortcuts are
 guarded by `HAVE_*` detection flags and activate only when the tool is installed;
-a few (e.g. `hethttp`) are unguarded.
+a few (e.g. `lhost`, `ttyup`) are unguarded.
 
 ### Directories
 
-Paths the offensive layer exports; override any of them in your host-local
-`99-local.zsh` before the offensive stage loads.
+Paths the offensive layer exports. The three data paths are defaults (`: "${VAR:=…}"`)
+applied when this stage loads at band 85, so an override has to exist **before** then:
+export it from `~/.zshenv` or the environment. Host-local `99-local.zsh` loads at band 95,
+too late. `$DOTFILES_OFFENSE` is resolved, not defaulted.
 
 | Variable            | Default                | What it is                                                                                     |
 | ------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
@@ -74,7 +76,7 @@ unset they **refuse to run inside a git work tree** rather than falling back to
 | Function                                    | Purpose                                                                                                                                                                                        |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lhost [iface]`                             | Print attacker IP — prefers VPN (tun0/tun1/tap0/wg0), falls back to default route                                                                                                              |
-| `hethttp [port]`                            | Quick delivery web server on 0.0.0.0 (optional port, default 8000); advertises the reachable callback URL via `lhost`                                                                          |
+| `hethttp [port]`                            | Delivery web server on 0.0.0.0 (port default 8000), callback URL via `lhost`; refuses inside a git work tree unless `HETHTTP_FORCE=1`                                                          |
 | `note [text]`                               | Append timestamped entry to engagement `notes.md`; no args opens it in `$EDITOR`                                                                                                               |
 | `ttyup`                                     | Print the TTY stabilisation sequence with attacker rows/cols pre-filled                                                                                                                        |
 | `cde`                                       | `cd` to the active `$ENGAGEMENT` directory                                                                                                                                                     |

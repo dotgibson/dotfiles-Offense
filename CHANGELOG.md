@@ -61,6 +61,16 @@ release line.
 
 ### Fixed
 
+- **`aliases.md` now gives an override location that works**
+  ([#348](https://github.com/dotgibson/dotfiles-Offense/issues/348)). It told you to override
+  `$ENGAGEMENTS_DIR` and the other data paths in `99-local.zsh`. But this stage applies their
+  `:=` defaults at band 85, and `99-local.zsh` loads at band 95, so the override came too late
+  for anything the stage had already used. The doc now names `~/.zshenv` or the environment.
+  It also offered `hethttp` as its example of an unguarded helper, yet `hethttp` checks for
+  python3 and refuses to serve from inside a git work tree unless `HETHTTP_FORCE=1` is set.
+  Its row now says so, and the example is `lhost`/`ttyup`. `CLAUDE.md` says twelve repos,
+  not eleven.
+
 - **Four manifest annotations and `redup`'s ledger caught up with a fast-moving week** — the
   act-on-it half of [#339](https://github.com/dotgibson/dotfiles-Offense/issues/339). All
   comment-only; no package added or removed, so the parsed manifest is byte-identical.
