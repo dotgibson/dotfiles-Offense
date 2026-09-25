@@ -1,7 +1,7 @@
 ---
 description: Cross-check the offensive docs against the corpus, the package list, and the tree (report-first)
 argument-hint: "[area, optional — e.g. hacktheplanet, packages, companion — defaults to full sweep]"
-allowed-tools: Read, Grep, Glob, Bash(git ls-files:*), Bash(ls:*)
+allowed-tools: Read, Grep, Glob, Bash(git ls-files:*), Bash(ls:*), Bash(./test/check-view-counts.sh:*)
 ---
 
 # /doc-audit
@@ -29,6 +29,13 @@ each finding to the right place.
 ## What to check
 
 Run these cross-checks (skip any out of the requested scope):
+
+0. **Run the count gate first.** Execute `./test/check-view-counts.sh` (a read-only
+   reporter — it never writes to the tree) and quote its exit status in the report. Exit 0
+   means the hand-typed red/blue/projected counts the views state about the vendored corpus
+   match the live tree — a tool-confirmed result, not a manual re-derivation. The semantic
+   buckets it leaves as `-` slots (cloud/C2/Linux counts, the 68%/75% shares) still need
+   your eye in the checks below.
 
 1. **Corpus ↔ flat-view coverage.** The corpus (`offensive/companion/entries/red/`,
    `entries/blue/`) is far richer than what's projected into the flat views: only a
