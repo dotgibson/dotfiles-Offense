@@ -22,11 +22,42 @@ if [ ! -s "$report" ]; then
   exit 0
 fi
 
-# Compose the issue body: a dated heading, the report, and a report-first footer.
+# ──────────────────────────────────────────────────────────────────────────────
+# Defang instruction-shaped markup before publishing captured output.
+#
+# The report is a routine's own stdout, republished into an issue a maintainer — and,
+# increasingly, THEIR coding assistant — will read. A clean report carries none of the
+# tokens below, so this is a NO-OP on the normal path; it is not a fix for a live leak
+# (the filed bodies have been clean). It hardens the publish boundary so that if a report
+# ever quotes an instruction-shaped tag — from a doc it audits, or captured harness text —
+# the tag reaches the issue as inert literal text, never as something a downstream reader
+# can act on. Curated to harness/instruction tokens with no legitimate use as an
+# offensive-doc placeholder, so real placeholders (<ip_address>, <user>, <pass>) and
+# <https://…> autolinks pass through untouched.
+defang_names='system-reminder|system-override|pasted_content|tool_use|tool_result|function_calls|function_results|invoke|parameter|antml:[A-Za-z0-9_.:-]+'
+
+# sanitize_report <in> <out> → write a defanged copy of <in> to <out>; print the number
+# of tags neutralised (0 when clean). Escapes only the angle brackets of a matched tag
+# (<…> → &lt;…&gt;), which renders as literal text and parses as no tag at all.
+# Case-insensitive; GNU sed/grep (CI is ubuntu-latest, matching claude-routines.yml).
+sanitize_report() {
+  local in="$1" out="$2" n
+  n="$(grep -oiE "<[/[:space:]]*(${defang_names})\b[^>]*>" "$in" | grep -c . || true)"
+  sed -E "s#<(/?[[:space:]]*(${defang_names})\b[^>]*)>#\&lt;\1\&gt;#gI" "$in" >"$out"
+  printf '%s\n' "${n:-0}"
+}
+
+report_safe="${RUNNER_TEMP:-/tmp}/routine-report.safe.md"
+defanged="$(sanitize_report "$report" "$report_safe")"
+if [ "${defanged:-0}" != 0 ]; then
+  echo "::notice::${title}: defanged ${defanged} instruction-shaped tag(s) in the captured report before filing — published as inert text, not as instructions."
+fi
+
+# Compose the issue body: a dated heading, the (sanitised) report, and a report-first footer.
 body="${RUNNER_TEMP:-/tmp}/routine-issue-body.md"
 {
   printf '## %s — %s\n\n' "$title" "$(date -u +%Y-%m-%d)"
-  cat "$report"
+  cat "$report_safe"
   printf '\n_Filed by the claude-routines workflow. Report-first: review and act — nothing was changed._\n'
 } >"$body"
 
@@ -110,7 +141,7 @@ if [ "$status" != report ]; then
       printf 'findings existed (**not** an audit finding, and not a model refusal). Raw signal:\n\n'
     fi
     printf '```\n'
-    cat "$report"
+    cat "$report_safe"
     printf '\n```\n\n'
     if [ "$status" = blocked-cyber ]; then
       printf '### Fix (account-level, one-time)\n\n'
