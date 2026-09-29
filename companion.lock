@@ -32,4 +32,4 @@ companion_sha=d669f892000da20d2c3aa0edea14abb4e2240823
 # put Defense's pin on htpx's release cadence instead of on a reviewed decision.
 # dotgibson/dotfiles-Offense#251.
 companion_version=3.3.0
-companion_tag=v3.2.0-14-gd669f89
+companion_tag=v3.3.0
