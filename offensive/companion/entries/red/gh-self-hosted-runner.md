@@ -16,7 +16,8 @@ runner: mint a registration token from the API, attach the runner with a label t
 workflow targets, and every matching job now executes on your host — you read its
 checked-out source, its injected `secrets.*`, and the ephemeral `GITHUB_TOKEN`.
 Durable, non-interactive, and survives the compromised admin's password reset. The
-registration writes `self_hosted_runner.created` to the audit log. (Cloud CI — no
+registration writes `repo.register_self_hosted_runner` to the audit log (org- and
+enterprise-scope registration emit the `org.`/`enterprise.` variants). (Cloud CI — no
 on-host target, so no slots.)
 
 ```sh

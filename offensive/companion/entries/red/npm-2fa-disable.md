@@ -5,7 +5,7 @@ section: npm / registry
 phase: Defense Impairment
 attack:
   tactic: TA0112
-  techniques: [T1685]
+  techniques: [T1556.006]
 platform: [npm]
 source: npm supply-chain evasion (2FA requirement tamper)
 pair: npm-2fa-audit

@@ -87,6 +87,12 @@ jobs:
       ISSUE_TITLE: "corpus-review: weekly companion corpus review"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # fetch-depth: 0 — the routine runs `git log --since=… --diff-filter=A` to list
+          # entries added since the last weekly run, which a depth-1 clone cannot answer
+          # (it sees one commit). Same reason the two release jobs below do it; this job
+          # was granted Bash(git log:*) without it, so that grant was inert.
+          fetch-depth: 0
       - name: Install Claude Code CLI (pinned)
         # Fail fast if the pin is empty — never silently fall back to a floating `latest`.
         run: npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION:?not set}"
@@ -95,7 +101,7 @@ jobs:
           claude -p "/corpus-review" \
             --model opus \
             --permission-mode default \
-            --allowedTools "Read,Grep,Glob,Bash(git ls-files:*),Bash(git log:*),WebSearch,WebFetch" \
+            --allowedTools "Read,Grep,Glob,Bash(git ls-files:*),Bash(git log:*),Bash(wc:*),WebSearch,WebFetch" \
             --output-format text | tee "$RUNNER_TEMP/corpus-review.md"
       - name: File the report as an issue
         # GH_TOKEN scoped to just this step (least privilege): it's only needed for the

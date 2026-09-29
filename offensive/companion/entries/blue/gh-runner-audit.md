@@ -10,7 +10,10 @@ source: GitHub Actions CI/CD abuse (self-hosted runner registration)
 pair: gh-self-hosted-runner
 ---
 
-`self_hosted_runner.created` is the invariant. Self-hosted runners are rare and
+The `*.register_self_hosted_runner` family is the invariant — GitHub emits it
+scoped to where the runner is bound (`repo.`/`org.`/`enterprise.`). The paired red
+registers at repo scope, but the detection keys on all three so org- and
+enterprise-scope registration isn't left dark. Self-hosted runners are rare and
 long-lived, so a new registration — especially from an unexpected actor, on a
 public repo, or with a label that shadows an existing pool — is a strong tell that
 someone is positioning to harvest job secrets. Pair with the org's known-runner
@@ -20,6 +23,6 @@ GitHub Enterprise audit-log telemetry, companion-only — `PURPLE-TEAM.md` is on
 Windows.
 
 ```spl
-index=github sourcetype=github:audit action=self_hosted_runner.created
+index=github sourcetype=github:audit action IN ("repo.register_self_hosted_runner", "org.register_self_hosted_runner", "enterprise.register_self_hosted_runner")
 | table _time, actor, action, repo, org, business
 ```

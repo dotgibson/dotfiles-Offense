@@ -121,12 +121,16 @@ frontmatter fields it needs with `awk`.
 <!-- THE CORPUS -->
 ## The Corpus
 
-105 paired attack/detection concepts (plus one unpaired recon entry), spanning
-Credential Access, Privilege Escalation, Lateral Movement, Persistence, Stealth,
-Defense Impairment, Collection, Exfiltration, and Discovery — across on-prem AD,
-a multi-cloud slice (Entra/M365, Azure ARM, AWS, GCP), Kubernetes, Okta, Google Workspace,
-CI/CD (GitHub Actions, GitLab, Jenkins), Harbor, HashiCorp Vault, Terraform
-Cloud, Snowflake, Cloudflare, the npm + PyPI registries, and Slack.
+107 paired attack/detection concepts (plus one unpaired recon entry), spanning
+Initial Access, Execution, Persistence, Privilege Escalation, Stealth, Defense
+Impairment, Credential Access, Discovery, Lateral Movement, Collection, Command
+& Control, Exfiltration, and Impact — across on-prem AD, a multi-cloud slice
+(Entra/M365, Azure ARM, AWS, GCP), Kubernetes, Okta, Google Workspace, CI/CD
+(GitHub Actions, GitLab, Jenkins), Harbor, HashiCorp Vault, Terraform Cloud,
+Snowflake, Cloudflare, the npm + PyPI registries, and Slack.
+
+Scope is deliberately on-prem AD plus the cloud/SaaS/CI-CD control planes:
+**macOS endpoint technique coverage is out of scope**, not a backlog item.
 
 Tags track **live** ATT&CK rather than a pinned bundle — currently **v19 (April
 2026)**, which split Defense Evasion into Stealth (`TA0005`) and Defense
@@ -164,10 +168,15 @@ is entry-first:
    ATT&CK tags and a `pair:` link; normalize command placeholders to `{{slots}}`.
    If the technique genuinely has no counterpart, set `pair: null` **and** a
    `pair_note:` giving the reason — CI rejects an unexplained `null`.
-2. **Regenerate the views.** Mark the matching blocks in the flat files and run
+2. **Bump the count.** The `## The Corpus` paragraph opens with "N paired
+   attack/detection concepts" — CI asserts that N against the real pair count in
+   `entries/`, so a PR that adds or removes a pair must move it. The failing step
+   prints the exact `sed` to run. While you are in that sentence, check the tactic
+   list still covers what you added.
+3. **Regenerate the views.** Mark the matching blocks in the flat files and run
    `gen-views.sh`; `gen-views.sh --check` (CI) fails on drift. Prose outside the
    markers stays hand-authored and canonical.
-3. **Edit here, not in Offense.** The vendored copy at `dotfiles-Offense`'s
+4. **Edit here, not in Offense.** The vendored copy at `dotfiles-Offense`'s
    `offensive/companion/` is overwritten on the next sync — fix it here, then
    Offense's `scripts/sync-companion.sh` pulls the change into that copy.
 
