@@ -1,0 +1,109 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: shellcheck + syntax
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning htpx gen-views.sh install.sh scripts/auto-tag.sh
+          bash -n htpx gen-views.sh install.sh scripts/auto-tag.sh
+      - name: drift gate (standalone — no flat-view targets)
+        run: ./gen-views.sh --check
+      - name: pairing graph + slot coverage
+        run: |
+          fail=0
+          for f in entries/red/*.md entries/blue/*.md; do
+            id=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="id"{print $2;exit}' "$f")
+            pair=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$f")
+            # A DECLARED hole must say why. `pair: null` is a legitimate schema value and
+            # this gate has always accepted it — but a bare null is indistinguishable from
+            # an oversight, so the only way to triage one was to read the prose and hope
+            # the author left a reason there. Requiring pair_note: makes the corpus
+            # self-explaining and stops declared holes being re-triaged every time someone
+            # counts the two directories (#97).
+            if [ "$pair" = "null" ]; then
+              note=$(awk '/^---/{n++;next} n==1 && /^pair_note:/{found=1} n==1 && found && /^[a-z_]+:/ && !/^pair_note:/{exit} n==1 && found{print}' "$f" | tail -n +2 | tr -d ' \n')
+              [ -n "$note" ] || { echo "UNEXPLAINED pair: null — $id needs a pair_note: saying why"; fail=1; }
+              continue
+            fi
+            mate=$(grep -rl "^id: *$pair\$" entries | head -1)
+            back=$([ -n "$mate" ] && awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$mate")
+            [ "$back" = "$id" ] || { echo "BROKEN PAIR: $id -> $pair (back=$back)"; fail=1; }
+          done
+          u=$(comm -23 <(grep -rho '{{[a-z_]*}}' entries|sort -u) <(grep -o "'{{[a-z_]*}}'" htpx|tr -d "'"|sort -u))
+          [ -z "$u" ] || { echo "UNHANDLED slots:"; echo "$u"; fail=1; }
+          exit $fail
+      - name: ATT&CK tag agreement + shape + README count
+        run: |
+          # Nothing else in this file reads attack.tactic / attack.techniques, so until
+          # now a typo'd or drifted tag reached the corpus unchallenged and the only
+          # check was the weekly /corpus-review LLM reading every entry by hand.
+          # #121 shows the failure mode: it reported "whole corpus" having diffed 102
+          # of 105 pairs. Deliberately offline — live ID validity stays the review's
+          # job, where a MITRE outage is a report line, not a red build on someone's PR.
+          fail=0
+          _tactic() { awk '/^---/{n++;next} n==1 && /^[[:space:]]+tactic:/{sub(/.*tactic:[[:space:]]*/,"");print;exit}' "$1"; }
+          _techs()  { awk '/^---/{n++;next} n==1 && /^[[:space:]]+techniques:/{sub(/.*techniques:[[:space:]]*/,"");gsub(/[][ ]/,"");print;exit}' "$1" | tr ',' '\n' | sort | paste -sd,; }
+          _id()     { awk -F': *' '/^---/{n++;next} n==1 && $1=="id"{print $2;exit}' "$1"; }
+          _shape() {
+            t=$(_tactic "$1"); k=$(_techs "$1")
+            case "$t" in
+              TA[0-9][0-9][0-9][0-9]) ;;
+              *) echo "BAD tactic: $2 -> '${t:-<missing>}'"; return 1 ;;
+            esac
+            [ -n "$k" ] || { echo "MISSING techniques: $2"; return 1; }
+            for x in $(echo "$k" | tr ',' ' '); do
+              echo "$x" | grep -qE '^T[0-9]{4}(\.[0-9]{3})?$' \
+                || { echo "BAD technique: $2 -> '$x'"; return 1; }
+            done
+          }
+          for f in entries/red/*.md entries/blue/*.md; do
+            _shape "$f" "$(_id "$f")" || fail=1
+          done
+          # Red drives the walk: every blue is the mate of exactly one red (the pairing
+          # gate above enforces that), so this visits each pair once.
+          pairs=0
+          for f in entries/red/*.md; do
+            id=$(_id "$f")
+            pair=$(awk -F': *' '/^---/{n++;next} n==1 && $1=="pair"{print $2;exit}' "$f")
+            if [ "$pair" = "null" ]; then continue; fi   # declared hole; pair_note: gate covers it
+            mate=$(grep -rl "^id: *$pair\$" entries | head -1)
+            [ -n "$mate" ] || continue                   # broken link; pairing gate already reports it
+            pairs=$((pairs + 1))
+            rt=$(_tactic "$f"); bt=$(_tactic "$mate")
+            rk=$(_techs "$f");  bk=$(_techs "$mate")
+            # _techs sorts, so [T1207, T1003.006] and [T1003.006, T1207] compare equal —
+            # order carries no meaning in these tags and must not fail the build.
+            [ "$rt" = "$bt" ] || { echo "TACTIC MISMATCH: $id ($rt) vs $pair ($bt)"; fail=1; }
+            [ "$rk" = "$bk" ] || { echo "TECHNIQUE MISMATCH: $id [$rk] vs $pair [$bk]"; fail=1; }
+          done
+          # Printed every run so a review quoting a different denominator is visibly wrong.
+          echo "ATT&CK tag agreement: $pairs pairs checked"
+          # ...and now asserted, because printing it was not enough. README's "N paired
+          # attack/detection concepts" line is what a reader -- and, it turned out, the weekly
+          # /corpus-review -- takes as the size of the corpus, and it is hand-maintained prose,
+          # so it goes stale the moment a pair lands without someone remembering to bump it.
+          # b80741f jumped it 90 -> 102 in one go; 6b659bb added two pairs and left it at 105.
+          # #124's review then read "105" off that line, called it the whole corpus, and handed
+          # a clean bill to four entries added five days earlier that it never opened. $pairs
+          # above is the real count, already computed by the walk this step does anyway -- this
+          # just makes the prose answer to it. A rewording that loses the phrase fails too: the
+          # number has to stay findable, or the next reader is quoting fiction.
+          _readme_count() { awk 'match($0, /[0-9]+ paired attack\/detection concepts/) { n = substr($0, RSTART); sub(/ .*/, "", n); print n; exit }' README.md; }
+          claimed=$(_readme_count)
+          if [ -z "$claimed" ]; then
+            echo "README COUNT MISSING: no 'N paired attack/detection concepts' line in README.md -- the corpus size must stay greppable. If you reworded that sentence, update the pattern in this step too."
+            fail=1
+          elif [ "$claimed" != "$pairs" ]; then
+            echo "README COUNT STALE: README.md claims $claimed pairs, entries/ has $pairs."
+            echo "  fix: sed -i 's/$claimed paired attack\/detection/$pairs paired attack\/detection/' README.md"
+            fail=1
+          fi
+          exit $fail
