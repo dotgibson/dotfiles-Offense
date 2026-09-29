@@ -5,7 +5,7 @@ section: Slack / SaaS
 phase: Defense Impairment
 attack:
   tactic: TA0112
-  techniques: [T1685]
+  techniques: [T1556.006]
 platform: [slack]
 source: Slack workspace compromise (2FA enforcement tamper)
 pair: slack-2fa-audit

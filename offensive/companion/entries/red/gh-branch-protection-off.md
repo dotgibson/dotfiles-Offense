@@ -18,6 +18,14 @@ admin override to merge past it. Either path lands attacker code in the protecte
 branch; the first writes `protected_branch.destroy`, the second
 `protected_branch.policy_override`. (Cloud CI — no slots.)
 
+**ATT&CK note — `T1685` is the deliberate, least-bad fit (#133).**
+Branch-protection tampering is a code-integrity / supply-chain control, not a
+monitoring tool, but ATT&CK v19 revoked `T1562.001` into the `T1685` parent and no
+TA0112 sub-technique fits more closely; the parent's "disrupt preventative
+mechanisms" scope covers both deleting the rule and the admin policy override. Kept,
+not swapped — unlike the 2FA pairs (#129 → `T1556.006`), TA0112 offers no clean
+replacement here.
+
 ```sh
 # delete protection on main, land code, then it can be re-created to cover tracks
 gh api -X DELETE /repos/<owner>/<repo>/branches/main/protection

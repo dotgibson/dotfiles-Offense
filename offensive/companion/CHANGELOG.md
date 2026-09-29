@@ -18,6 +18,178 @@ Add user-visible changes under `[Unreleased]`. To cut a release, move the
 `main`: `auto-tag.yml` sees the new top version, tags `vX.Y.Z`, and publishes a
 GitHub Release; `sync-fanout.yml` then opens the Offense sync PR.
 
+## [Unreleased]
+
+## [v3.3.0] - 2026-09-29
+
+### Added
+
+- **Two GCP red↔blue pairs: compute execution and storage exfil** (#122, from #121).
+  - `gcp-gce-startup-script-exec` ↔ `gcp-gce-metadata-audit` (TA0002, `T1651`): guest code
+    runs as root through a metadata `startup-script`. It is detected from the GCP Admin
+    Activity audit log, a `setMetadata` carrying `startup-script` followed by a `reset`.
+  - `gcp-gcs-mass-exfil` ↔ `gcp-gcs-exfil-audit` (TA0009, `T1530`): bulk
+    `storage.objects.get` / `rewrite` against a bucket. It is detected by
+    `storage.objects.get` volume in the Data Access log.
+
+- **CI now gates red↔blue ATT&CK tag agreement — the dimension nothing machine-checked**
+  (#121). `ci.yml` read `id`, `pair` and `{{slot}}` tokens, but never `attack.tactic` or
+  `attack.techniques`: a typo'd ID, or a retag applied to only one half of a pair, reached
+  the corpus unchallenged. The sole check was the weekly `/corpus-review` reading every
+  entry by hand, and #121 is what that costs — it was titled "103 pairs, whole corpus" and
+  said it had diffed "all 102 non-null pairs", against the **105** that existed when it
+  ran, so its completeness claim covered three pairs it never opened. The verdict happened
+  to survive a full re-diff (zero mismatches), but a review that miscounts its own
+  denominator can skip entries and still report "no findings." The new step asserts:
+  - **shape** — `tactic` matches `^TA[0-9]{4}$`, and every technique
+    `^T[0-9]{4}(\.[0-9]{3})?$`;
+  - **agreement** — each pair's red and blue carry an identical tactic and technique set,
+    compared order-insensitively, since order carries no meaning in these tags;
+  - **denominator** — it prints `ATT&CK tag agreement: N pairs checked` on every run, so a
+    future review quoting a different number is visibly wrong against the log.
+
+  Deliberately **offline**: it does not call `attack.mitre.org`. Live ID validity stays the
+  weekly review's job, where a MITRE outage or a revocation redirect is a report line rather
+  than a red build on an unrelated PR. Pure `bash`/`awk`, no `yq`, matching the gate
+  above it.
+
+### Changed
+
+- **`T1685` on the branch-protection pairs is kept as a deliberate call, now noted in
+  the entries themselves (#133).** The weekly `/corpus-review` flagged `T1685` (Disable
+  or Modify Tools) as a weak semantic fit for `gh-branch-protection-off` ↔
+  `gh-branch-protection-audit` and `gl-protected-branch-off` ↔ `gl-protected-branch-audit`
+  — branch-protection tampering is a code-integrity / supply-chain control, not a
+  monitoring tool. But the tag is **valid and red/blue agree**, so CI never had cause to
+  fail: this was a judgment item, not a defect. Unlike the sibling 2FA case (#129 →
+  `T1556.006`), TA0112 offers no clean single replacement — ATT&CK v19 revoked
+  `T1562.001` into the `T1685` *parent*, whose "disrupt preventative mechanisms" scope
+  does cover removing a protection rule, and no v19 sub-technique fits more closely (the
+  same reasoning the v19 retag block below already recorded). Resolution: keep `T1685`,
+  and add an **ATT&CK note** to the two red entries so the decision is visible to the
+  next review — which reads entry bodies, not this changelog — instead of being
+  re-flagged each week.
+- **`sync-fanout.yml` passes `client-id`, not the deprecated `app-id`, and reads the new
+  `FLEET_APP_CLIENT_ID` org variable (#119, dotfiles-core #831).** The pinned
+  `create-github-app-token` (v3.2.0) deprecates `app-id`, and the Offense sync mint passed
+  it. The variable is a **new** one because `FLEET_APP_ID` holds the App ID and the new
+  input wants the Client ID, a different value; the `if:` guard and the preflight's
+  `::error::` move in the same commit. Precondition: the org variable must exist before
+  this merges, or the preflight fails every fan-out until it does — loudly, which is the
+  half of the failure this repo gets.
+
+### Fixed
+
+- **The DPAPI backup-key detection keys on the LSA secret read (4662); the blue entry is
+  renamed `dpapi-backupkey-5145` → `dpapi-backupkey-4662`** (#137, #142; fixes #131, refs
+  #140). The paired red command, `impacket-dpapi backupkeys`, never touches MS-BKRP or
+  `\pipe\protected_storage`. It calls `LsarRetrievePrivateData` (MS-LSAD) over
+  `\pipe\lsarpc` on the `G$BCKUPKEY_*` LSA secrets, so the old 5145-only detection could
+  not fire on it.
+  - The primary signal is now 4662 with `Object_Server="LSA"`, `SecretObject`, access mask
+    `0x2` and `*BCKUPKEY*`. The protected_storage 5145 stays as a secondary signal for the
+    MS-BKRP live-decrypt path.
+  - The audit prerequisite ("Other Object Access Events", not DS Access) and the field
+    names are pinned from the OTRF Security-Datasets recording of the same calls. The
+    table gains `Logon_ID`, because 4662 carries no source IP (join to 4624).
+  - The red entry's prose and `pair:` are corrected, and so is `smb-enum-5145`'s
+    cross-reference. Anything that links the old id must move to the new one.
+- **`dga-nxdomain-entropy` is scoped to character-level DGAs and gains an NXDOMAIN volume
+  arm** (#136, fixes #132). Its only gate was a vowel ratio below 0.3, which catches the
+  paired hex-label red but lets vowel-rich dictionary DGAs through, even though the entry
+  claimed general DGA coverage. Changes:
+  - The title says "label shape", not "entropy".
+  - A new `arm` field splits a high-fidelity character-level arm from a lower-fidelity
+    volume arm (more than 200 distinct NXDOMAINs, with no label-shape test).
+  - The character-level threshold drops from over 50 to 40 or more NXDOMAINs, so a single
+    run of the 50-domain red now trips it.
+  - The entry says plainly that real dictionary-DGA coverage needs a word-list or n-gram
+    lookup.
+- **Tool names and two operational caveats corrected** (#138, from #130).
+  - `printerbug` → `printerbug.py` (the impacket/Kali binary name) in
+    `unconstrained-deleg-tgt` and `coerce-petitpotam`.
+  - `ligolo-agent` → `agent` in `reverse-tunnel-chisel`.
+  - `dns-tunnel-sysmon-22` notes that its `parent_domain` rex assumes a two-label
+    registrable domain, so it mis-groups public suffixes such as `co.uk`.
+  - `cf-waf-disable` resends `action` and `expression`, because Cloudflare's per-rule
+    PATCH replaces the whole rule and does not honour a bare `{"enabled":false}`.
+
+  No frontmatter, pairing, slot or ATT&CK tag changes.
+- **The npm and Slack 2FA-disable pairs were tagged as tool tampering, not an
+  authentication change** (#129, from #126 Finding 2). `npm-2fa-disable` /
+  `npm-2fa-audit` and `slack-2fa-disable` / `slack-2fa-audit` carried `T1685` (Disable or
+  Modify Tools), whose v19 scope is security *sensors* — EDR, AV, logging. Downgrading a
+  package's publish-2FA level or a workspace's enforced 2FA weakens an **authentication
+  requirement**, which is `T1556.006` (Modify Authentication Process: Multi-Factor
+  Authentication) — the tag the `okta-mfa-reset` pair already uses. Both halves of each
+  pair are retagged together, so the CI tag-agreement gate still passes. `T1556.006` maps
+  to `TA0112` in v19, so `tactic: TA0112` is unchanged; the detections already key on the
+  right events (`package.edit mfa=…`, `two_factor_required=false`), so this is a retag,
+  not a detection change. It narrows #124's verdict below that the `TA0112` / `T1685`
+  cluster needed no retag — these two pairs were the exception.
+
+- **Three GitHub blue detections keyed on audit-action strings GitHub never emits —
+  they silently never fired** (#126, Finding 1; #128). `gh-runner-audit` matched
+  `action=self_hosted_runner.created` and `gh-cred-audit` matched
+  `repo.create_deploy_key` — neither is a real GitHub audit-log action, so the SPL
+  never matched live telemetry and the detections read as coverage while providing
+  none (`gh-cred-audit` also missed the PAT *request* event). CI could not catch it: the ATT&CK
+  gate checks tag agreement, not audit-action strings, and the paired red *prose*
+  carried the same wrong strings, so nothing was inconsistent to flag. Retargeted to
+  the documented events, in both the blue SPL and the matching red/blue prose:
+  - self-hosted runner registration → the `*.register_self_hosted_runner` family
+    (`repo.`/`org.`/`enterprise.`); the red demos repo scope, the detection covers all
+    three so org/enterprise-scope registration isn't dark;
+  - deploy-key add → `public_key.create`;
+  - fine-grained PAT → `personal_access_token.request_created` (request) and
+    `personal_access_token.access_granted` (grant — where durable access is minted).
+    An interim `personal_access_token.request_approved` was itself undocumented; the
+    grant event is pinned against GitHub's org and enterprise audit-event tables.
+
+  ATT&CK tags are unchanged; this is a detection-string fix, not a retag.
+
+- **`T1685` → `T1556.006` on the two 2FA-disable pairs — a security-tool-tamper tag on an
+  authentication-control change** (#126, Finding 2). `npm-2fa-disable`↔`npm-2fa-audit` and
+  `slack-2fa-disable`↔`slack-2fa-audit` tagged the publish-2FA / workspace-2FA downgrade as
+  `T1685` (Disable or Modify Tools — the v19 renumber of T1562, scoped to EDR/AV/logging
+  sensors). The action weakens an authentication requirement, not a monitoring tool; the
+  correct technique is `T1556.006` (Modify Authentication Process: Multi-Factor
+  Authentication), which in v19 also maps to `TA0112`, so the existing `tactic: TA0112`
+  stays and only the technique ID moves. The detections already key on the right audit
+  events (`package.edit mfa=…`, `two_factor_required=false`) and are unchanged — a tagging
+  fix, not a detection fix. Both halves of each pair change together, so the red↔blue
+  agreement gate stays green.
+
+- **README's corpus count is gated, and the weekly review must now count for itself**
+  (#124). `README.md` said "105 paired attack/detection concepts"; the corpus had **107**
+  — `6b659bb` added two pairs and left the number alone, as `b80741f` had before it
+  (90 → 102 in one jump). #124's `/corpus-review` took 105 from that prose, headlined
+  "whole corpus … clean bill", and never mentioned the four entries `6b659bb` added five
+  days earlier: two GCP pairs shipped unreviewed under a completeness claim. This is the
+  #121 failure repeating one gate later — `7f369ee` added the ATT&CK step that *prints*
+  `ATT&CK tag agreement: N pairs checked` precisely so a wrong denominator would be
+  visible, but nothing routed that number anywhere, so it was printed and ignored. The
+  review's ATT&CK verdict itself was re-verified against live MITRE and stands: the v19
+  `TA0112` / `T1685` / `T1686.001` cluster is correctly tagged and no retag was needed.
+  Four changes close the loop:
+  - **README** is corrected to 107, and its tactic list now names all thirteen tactics the
+    corpus covers — Initial Access, Execution, Command & Control and Impact were missing,
+    26 pairs' worth of coverage the prose disclaimed. macOS endpoint coverage is now
+    **declared out of scope** rather than left ambiguous, which is what made it read as an
+    undeclared hole in successive reviews.
+  - **`ci.yml`** asserts that number against `$pairs` *inside the step that already
+    computes it* — no second, divergent walk to drift out of sync — so the count cannot go
+    stale again, and a rewording that loses the phrase fails just as loudly as a wrong
+    number. The failure prints the exact `sed` to run.
+  - **`/corpus-review`** must now compute red / blue / pairs itself (`Bash(wc:*)`, the one
+    tool added), reconcile against CI's printed denominator, open every report with a
+    `Scope / Counted / Reviewed` header, say **SUBSET** whenever it read fewer pairs than
+    exist, and give a named verdict line to every entry added in the last 30 days.
+  - **`claude-routines.yml`** checks the corpus-review job out with `fetch-depth: 0`. Its
+    `Bash(git log:*)` grant had been inert since the job was written — a depth-1 clone sees
+    one commit — so the "added since the last review" list could not have worked without
+    this. The two release jobs already did it for the same reason.
+
 ## [v3.2.0] - 2026-09-03
 
 ### Added

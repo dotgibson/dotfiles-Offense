@@ -20,11 +20,11 @@ hosts per principal* in a window; that is `nxc smb <range>` walked across a subn
 Key on the **pipe**, not the tool. `srvsvc` and `wkssvc` are the RPC transport for the
 classic Windows enumeration calls — `srvsvc` carries `NetShareEnum` (shares) and
 `NetSessionEnum` (who is connected), `wkssvc` carries `NetWkstaUserEnum` (who is logged
-on). That set is **disjoint** from the other two 5145 detections in this corpus, and the
+on). That set is **disjoint** from the other 5145 pipe sets in this corpus, and the
 split is the whole point rather than an oversight to consolidate later:
 `coercion-5145` keys on `spoolss`/`efsrpc`/`lsarpc`/`netlogon`/`lsass` (coercion, T1187)
-and `dpapi-backupkey-5145` on `protected_storage`. Same event ID, different RPC
-interface, different technique.
+and `dpapi-backupkey-4662` uses `protected_storage` as a secondary signal. Same event ID,
+different RPC interface, different technique.
 
 ```spl
 index=main EventCode=5145 Account_Name!="*$"

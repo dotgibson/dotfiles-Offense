@@ -1,7 +1,7 @@
 ---
 description: Judgment review of the htpx red↔blue corpus — ATT&CK correctness, pairing fidelity, red command correctness, coverage holes, detection quality (report-first)
 argument-hint: "[tactic, platform, or detection-backend — optional, e.g. credential_access, aws, kql-entra-signin]"
-allowed-tools: Read, Grep, Glob, WebSearch, WebFetch, Bash(git ls-files:*), Bash(git log:*)
+allowed-tools: Read, Grep, Glob, WebSearch, WebFetch, Bash(git ls-files:*), Bash(git log:*), Bash(wc:*)
 ---
 
 # /corpus-review
@@ -18,6 +18,60 @@ The goal is a **reviewable report, not edits** — like every routine in this fl
 report-first: propose, rank, and link; change nothing.
 
 Focus for this run: **$ARGUMENTS** (empty = the whole corpus).
+
+## Establish the denominator first — count it, never quote it
+
+Before reading a single entry, compute the size of the corpus yourself:
+
+```sh
+git ls-files 'entries/red/*.md'  | wc -l      # RED  — total red entries
+git ls-files 'entries/blue/*.md' | wc -l      # BLUE — total blue entries
+```
+
+Then count the **declared holes** — red entries carrying `pair: null` (Grep
+`^pair: null` under `entries/red/`) — and derive `PAIRS = RED − holes`. That is the
+identical walk `ci.yml`'s ATT&CK step performs (red drives it, `pair: null` is
+skipped), so your `PAIRS` **must** equal the `ATT&CK tag agreement: N pairs checked`
+line that step prints for this commit. If you cannot reconcile them, stop and report
+the discrepancy as your lead finding — one of the two is wrong, and that matters more
+than any entry-level defect you could find this cycle.
+
+**Never take a count from prose.** Not from `README.md`, not from `CHANGELOG.md`, not
+from a previous review issue. #124 read "105" off README's `## The Corpus` paragraph,
+called it the whole corpus, and gave a clean bill to four entries added in `6b659bb`
+that it had never opened — README had been stale since that commit. `ci.yml` now
+asserts README's number against the computed pair count, so README *should* agree with
+you: **cross-check it, and if it does not, that is a finding** — the gate is broken or
+was bypassed. Adopt your own computed number either way.
+
+Open the report with this header, verbatim in shape:
+
+```text
+Scope:    whole corpus | focus: <$ARGUMENTS>
+Counted:  <RED> red, <BLUE> blue, <PAIRS> pairs (+ <holes> declared `pair: null`), at <short SHA>
+Reviewed: <R> of <PAIRS> pairs read end to end
+```
+
+If `$ARGUMENTS` is non-empty, **or** `R < PAIRS` for any reason — time, a tool failure,
+a slice you chose to skip — you reviewed a **SUBSET**. Say so in the first line and name
+what you did not cover. "Whole corpus", "every entry", "all pairs" and "clean bill" are
+reserved for a run where `R == PAIRS`. Using one otherwise is the worst failure this
+routine can produce: it retires a risk nobody looked at.
+
+### Entries added since the last review
+
+The weekly beat means anything added in the last seven days has had no review at all.
+Name them rather than trusting them to fall out of a full read:
+
+```sh
+git log --since='30 days ago' --diff-filter=A --name-only \
+        --format='%h %ad %s' --date=short -- entries/red entries/blue
+```
+
+Every path that command prints gets its own line in the report — *reviewed, clean* /
+*reviewed, finding below* / *not reviewed, because …*. A 30-day window, not 7, so a
+skipped or failed run cannot open a gap. New pairs are the highest-risk content in the
+corpus: least human attention, and exactly what #124 missed.
 
 ## Establish what CI already proves (do NOT re-litigate)
 
@@ -37,7 +91,8 @@ CI green means the corpus is structurally sound and internally consistent. It do
 
 ## What to review (the judgment CI can't do)
 
-Read the entries first: `git ls-files 'entries/red/*.md' 'entries/blue/*.md'`. Each
+Read the entries first — the same list you counted above, in full unless you have
+declared a SUBSET: `git ls-files 'entries/red/*.md' 'entries/blue/*.md'`. Each
 red entry carries `attack: {tactic, techniques}`, `platform`, `pair`; each blue
 entry carries `attack: {tactic, techniques}`, `detection`, `event_ids`, `pair`.
 
@@ -59,15 +114,15 @@ entry carries `attack: {tactic, techniques}`, `detection`, `event_ids`, `pair`.
    AWS, GCP, K8s, Okta, GWS, CI/CD, SaaS) are thin (one fragile pair) or absent
    relative to what the corpus claims to cover? Rank by how central the gap is, not
    by raw ATT&CK breadth. **`pair: null` is legitimate for a recon entry** (e.g.
-   `entries/red/smb-enum-nxc.md`) — never flag an intentionally-unpaired recon entry
+   `entries/red/gcp-enum-recon.md`) — never flag an intentionally-unpaired recon entry
    as a missing pair.
 5. **Detection quality / duplication.** Is a blue detection too broad (alert
    fatigue) or too brittle (trivially evaded)? Are two entries near-duplicates that
    should merge? Is a `source:` provenance stale or a claim unsupported — and does
    it credit **the toolkit the command actually shows**? (`device-code-phish`
    credited ROADtools for releases while running an AADInternals cmdlet.)
-6. **Red command correctness — nothing else in this repo reads it.** All 103 red
-   entries carry a fenced command block and no gate validates its contents: CI's
+6. **Red command correctness — nothing else in this repo reads it.** Every red
+   entry carries a fenced command block and no gate validates its contents: CI's
    checks are structural (pairing, slots, byte-drift, shell lint) and *projection is
    not the variable* — v2.8.1's `wmi-subscription` **was** projected and the
    byte-gate stayed green, because it asserts the flat view matches the entry, not
@@ -98,7 +153,9 @@ entry carries `attack: {tactic, techniques}`, `detection`, `event_ids`, `pair`.
 
 ## How to report
 
-A ranked shortlist, most-valuable first. For each finding:
+Open with the `Scope / Counted / Reviewed` header above — before anything else, every
+run, including a no-findings one. Then a ranked shortlist, most-valuable first. For
+each finding:
 
 - **The entry/entries or gap** — exact path(s) under `entries/`, or the uncovered
   tactic/technique (with its verified ATT&CK ID).
@@ -113,6 +170,9 @@ A ranked shortlist, most-valuable first. For each finding:
 Lead with your single strongest finding. "The corpus is well-tagged, pairings are
 faithful, and coverage matches the claim — no material gaps this cycle" is a valid,
 useful result; say so plainly rather than manufacturing findings.
+That verdict is available **only** to a run whose `Reviewed` equals `PAIRS`. On a
+focused or partial run the honest form is "no material gaps in `<what you read>`",
+scoped to the subset — never to "the corpus".
 
 ## If a finding is adopted
 

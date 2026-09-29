@@ -16,6 +16,9 @@ queries under a single registrable domain, with long high-entropy leftmost label
 query to its `Image`, so group by process and parent domain and alert when a single
 non-browser image drives a high count of distinct, long subdomains to one zone.
 Baseline out CDNs and telemetry endpoints that legitimately fan out subdomains.
+Note that the `parent_domain` extraction assumes a two-label registrable domain, so it
+mis-groups multi-label public suffixes (`co.uk`, `com.au`) — fragmenting the per-zone
+count; exact grouping in those TLDs needs a public-suffix-list lookup.
 
 ```spl
 index=sysmon EventCode=22

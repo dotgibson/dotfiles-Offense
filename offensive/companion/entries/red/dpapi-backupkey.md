@@ -8,12 +8,13 @@ attack:
   techniques: [T1555]
 platform: [windows, network]
 source: Benjamin Delpy (mimikatz DPAPI) & Will Schroeder (SharpDPAPI), DPAPI research
-pair: dpapi-backupkey-5145
+pair: dpapi-backupkey-4662
 ---
 
 The domain DPAPI backup key is the master skeleton key for every user's
 DPAPI-protected secrets — browser passwords, saved RDP/creds, Wi-Fi keys. With DA
-you pull it once over the BackupKey Remote Protocol (MS-BKRP), then decrypt any
+you pull it once by reading the DC's `G$BCKUPKEY_*` LSA secrets (MS-LSAD
+`LsarRetrievePrivateData` over `\pipe\lsarpc`), then decrypt any
 captured masterkey + credential blob *offline*, forever. `<masterkey-file>` /
 `<credential-blob>` are files looted from the target's profile.
 

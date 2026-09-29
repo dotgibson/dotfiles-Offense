@@ -16,7 +16,7 @@ Delete a custom rule or flip it to disabled and the origin is exposed to the tra
 dropping — no origin change needed, just an API call. Rules live in the **Rulesets engine**
 under the zone's `http_request_firewall_custom` phase; the legacy Firewall Rules API
 (`/firewall/rules/`) was sunset on 2025-06-15, so a modern tenant only answers on
-`/rulesets/`. Disabling a single rule is quieter than deleting one — the rule stays visible
+`/rulesets/`. The per-rule PATCH replaces the whole rule definition, so resend the rule's `action`/`expression` alongside `"enabled": false` — a bare `{"enabled": false}` is not honored. Disabling a single rule is quieter than deleting one — the rule stays visible
 in the dashboard, just inert. Either way the change writes a Cloudflare audit event on
 `resource.type=ruleset` (historical events carry `firewall_rule`) with
 `action.type=update`/`delete`. (Edge control plane — no slots.)
@@ -27,5 +27,5 @@ curl -s "https://api.cloudflare.com/client/v4/zones/<zone>/rulesets/phases/http_
   -H "Authorization: Bearer <token>"
 curl -s -X PATCH "https://api.cloudflare.com/client/v4/zones/<zone>/rulesets/<ruleset_id>/rules/<rule_id>" \
   -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" --data '{"enabled":false}'
+  -H "Content-Type: application/json" --data '{"action":"block","expression":"<original expression>","description":"<original description>","enabled":false}'
 ```
