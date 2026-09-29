@@ -161,7 +161,7 @@ that no gate on either side could see (dotgibson/dotfiles-Offense#208).
 
 ```sh
 impacket-petitpotam {{lhost}} {{rhost}}
-printerbug {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
+printerbug.py {{domain}}/{{user}}:{{password}}@{{rhost}} {{lhost}}
 dfscoerce -u {{user}} -p {{password}} -d {{domain}} {{lhost}} {{rhost}}
 ```
 FIXTURE
@@ -172,14 +172,14 @@ FIXTURE
   grep -q 'not in install/impacket-binaries.lst' <<<"$out" \
     || { bad "self-test: impacket-petitpotam was not caught by the MEMBERSHIP rule"; fail=1; }
   if grep -q 'printerbug' <<<"$out"; then
-    bad "self-test: false-positived on printerbug, which resolves via pkg:krbrelayx"; fail=1
+    bad "self-test: false-positived on printerbug.py, which resolves via pkg:krbrelayx"; fail=1
   fi
   if ((fail)); then
     printf '%s\n' "$out" >&2
     bad "self-test FAILED — the gate would not have caught #208"
     exit 1
   fi
-  ok "self-test: the two #208 escapes redden the gate, printerbug still resolves."
+  ok "self-test: the two #208 escapes redden the gate, printerbug.py still resolves."
   exit 0
 }
 
