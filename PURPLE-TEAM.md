@@ -55,15 +55,15 @@ follow the common Splunk add-on schema — adjust to your CIM/normalization.
 > here (CI rejects a hand-edit). Everything outside the markers is hand-authored.
 >
 > **Scope: this map is the Windows Security / Sysmon mirror.** Every section below
-> keys off a Windows event ID, which is why only 24 of the companion's 105 blue
-> entries project here. The other 81 mostly detect in logs this file has no section for —
+> keys off a Windows event ID, which is why only 24 of the companion's 107 blue
+> entries project here. The other 83 mostly detect in logs this file has no section for —
 > AWS CloudTrail, GCP audit logs, Entra sign-in/audit, Okta system log, GitHub/GitLab
 > audit, Vault audit device, Snowflake account usage — plus the C2-egress and Impact
 > detections. Read those with `htpx` (`~/companion`), which shows each detection
 > beside the attack that trips it. That split is deliberate, not a backlog: a
 > cloud-audit query has nothing to do with a Sysmon feed in `index=main`.
 >
-> Of those 81, **72** genuinely carry no Windows event ID. Seven of the remaining
+> Of those 83, **74** genuinely carry no Windows event ID. Seven of the remaining
 > nine are the C2-egress and Impact detections named above. The last two —
 > `bloodhound-collect-4662` and `ldap-recon-4662` — key off event **4662** and carry
 > no generated block. ldap-recon-4662 is now covered by the hand-authored **LDAP
@@ -288,11 +288,11 @@ hosts per principal* in a window; that is `nxc smb <range>` walked across a subn
 Key on the **pipe**, not the tool. `srvsvc` and `wkssvc` are the RPC transport for the
 classic Windows enumeration calls — `srvsvc` carries `NetShareEnum` (shares) and
 `NetSessionEnum` (who is connected), `wkssvc` carries `NetWkstaUserEnum` (who is logged
-on). That set is **disjoint** from the other two 5145 detections in this corpus, and the
+on). That set is **disjoint** from the other 5145 pipe sets in this corpus, and the
 split is the whole point rather than an oversight to consolidate later:
 `coercion-5145` keys on `spoolss`/`efsrpc`/`lsarpc`/`netlogon`/`lsass` (coercion, T1187)
-and `dpapi-backupkey-5145` on `protected_storage`. Same event ID, different RPC
-interface, different technique.
+and `dpapi-backupkey-4662` uses `protected_storage` as a secondary signal. Same event ID,
+different RPC interface, different technique.
 
 ```spl
 index=main EventCode=5145 Account_Name!="*$"
@@ -735,22 +735,44 @@ Corroborate with `5137` creating an `nTDSDSA`/server object, and `4662` replicat
 (`DS-Replication-Get-Changes`) sourced from a host outside your DC inventory.
 <!-- companion:end dcshadow-4742 -->
 
-<!-- companion:gen dpapi-backupkey-5145 -->
-**Detect DPAPI backup-key theft (protected_storage pipe, 5145)**
+<!-- companion:gen dpapi-backupkey-4662 -->
+**Detect DPAPI backup-key theft (LSA secret read, 4662)**
 
-Detection posture: **narrow but real** — the backup-key retrieval rides MS-BKRP
-over the DC's `protected_storage` named pipe (`5145`), and almost nothing but a
-genuine domain backup operation touches it. A non-backup principal accessing
-`protected_storage` on a DC is the tell. The *offline* decryption that follows is
-invisible — this RPC is the only on-wire moment. Needs detailed file-share
-auditing on DCs.
+Detection posture: **narrow but real**. The domain backup key lives on the DC as
+the LSA secrets `G$BCKUPKEY_PREFERRED` / `G$BCKUPKEY_P` / `G$BCKUPKEY_<guid>`.
+Dumping it means reading those secret objects, and the read shows up as a `4662`
+with `Object_Type=SecretObject`, `Access_Mask=0x2` and a `BCKUPKEY` object name.
+That is the invariant. `impacket-dpapi backupkeys` and mimikatz
+`lsadump::backupkeys` both call `LsarRetrievePrivateData` (MS-LSAD) over
+`\pipe\lsarpc`, and neither touches MS-BKRP or `protected_storage`.
+
+Don't key this on `lsarpc` `5145`. Every SID lookup on a DC opens that pipe, and it
+is already one of the pipes `coercion-5145` sprays across. The `protected_storage`
+`5145` stays in as a secondary signal for the other path: MS-BKRP `BackuprKey`
+calls from tooling that asks the DC to decrypt a masterkey live, such as
+`impacket-dpapi masterkey -t`. The *offline* decryption that follows either path
+is invisible, so this read is the only on-wire moment.
+
+This `4662` comes from `Object_Server=LSA`, not from the directory service, so it
+logs under Object Access > Other Object Access Events. Enabling DS Access alone
+won't produce it. (Needs Success auditing of the Other Object Access Events
+subcategory on the DCs. The `5145` half needs detailed file-share auditing.) The
+OTRF Security-Datasets recording of mimikatz `lsadump::backupkeys` against a DC,
+which makes the same `LsarRetrievePrivateData` calls as impacket, shows one event
+per secret read. That is about four per dump, each with
+`Object_Name=Policy\Secrets\G$BCKUPKEY_*` and Accesses "Query secret value". The
+same run's `5145`s are all `lsarpc`, with no `protected_storage`.
+
+`4662` carries no source IP. To get it, join its `Logon_ID` to the matching
+network-logon `4624`. Field names assume the classic `WinEventLog` sourcetype; on
+`XmlWinEventLog` they are `ObjectServer` / `ObjectType` / `ObjectName` / `AccessMask`.
 
 ```spl
-index=main EventCode=5145 Relative_Target_Name="protected_storage"
-| regex Share_Name="(?i).*ipc\$$"
-| table _time, host, Account_Name, Source_Address, Share_Name, Relative_Target_Name
+index=main (EventCode=4662 Object_Server="LSA" Object_Type="SecretObject" Access_Mask="0x2" Object_Name="*BCKUPKEY*")
+    OR (EventCode=5145 Share_Name="*IPC$" Relative_Target_Name="protected_storage")
+| table _time, host, EventCode, Account_Name, Logon_ID, Source_Address, Object_Name, Share_Name, Relative_Target_Name
 ```
-<!-- companion:end dpapi-backupkey-5145 -->
+<!-- companion:end dpapi-backupkey-4662 -->
 
 ---
 
