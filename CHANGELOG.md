@@ -71,6 +71,13 @@ release line.
   Its row now says so, and the example is `lhost`/`ttyup`. `CLAUDE.md` says twelve repos,
   not eleven.
 
+- **The `nmapsweep` and `rocks` rows match their functions**
+  ([dotfiles-core#1251](https://github.com/dotgibson/dotfiles-core/issues/1251), D10/D11).
+  The helper-functions note grouped `nmapsweep` with `note`/`logshell`/`bhce` as resolving
+  their target via `$ENGAGEMENT`; it does not — it uses `_eng_writeroot` only as a work-tree
+  guard and always writes to `./nmap/` under `$PWD`, even when `$ENGAGEMENT` is set. The
+  `rocks` row showed `[query]` as optional, though the function returns 1 with no argument.
+
 - **Four manifest annotations and `redup`'s ledger caught up with a fast-moving week** — the
   act-on-it half of [#339](https://github.com/dotgibson/dotfiles-Offense/issues/339). All
   comment-only; no package added or removed, so the parsed manifest is byte-identical.
