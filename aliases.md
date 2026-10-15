@@ -66,12 +66,14 @@ To fill in real target values, `sed` a copy into `$ENGAGEMENT` (recipe at the to
 
 ### Helper Functions
 
-The four that write engagement data — `note`, `logshell`, `bhce`, `nmapsweep` —
-resolve their target via `$ENGAGEMENT` (set by `mkengagement` / `eng`). With it
-unset they **refuse to run inside a git work tree** rather than falling back to
-`$PWD`, so a stray `note` can't land client data in a checkout. Outside a repo the
-`$PWD` fallback still applies; to write into a repo deliberately, say
-`ENGAGEMENT="$PWD" note "…"`.
+The three that write engagement data — `note`, `logshell`, `bhce` — resolve their
+target via `$ENGAGEMENT` (set by `mkengagement` / `eng`). With it unset they
+**refuse to run inside a git work tree** rather than falling back to `$PWD`, so a
+stray `note` can't land client data in a checkout. Outside a repo the `$PWD`
+fallback still applies; to write into a repo deliberately, say
+`ENGAGEMENT="$PWD" note "…"`. `nmapsweep` shares that same work-tree guard
+(`_eng_writeroot`), but always writes its captures to `./nmap/` under `$PWD` — it
+does **not** redirect into `$ENGAGEMENT` even when that is set.
 
 | Function                                    | Purpose                                                                                                                                                                                        |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -80,7 +82,7 @@ unset they **refuse to run inside a git work tree** rather than falling back to
 | `note [text]`                               | Append timestamped entry to engagement `notes.md`; no args opens it in `$EDITOR`                                                                                                               |
 | `ttyup`                                     | Print the TTY stabilisation sequence with attacker rows/cols pre-filled                                                                                                                        |
 | `cde`                                       | `cd` to the active `$ENGAGEMENT` directory                                                                                                                                                     |
-| `rocks [query]`                             | Open ippsec.rocks search in browser (xdg-open / wslview / explorer.exe)                                                                                                                        |
+| `rocks <query…>`                            | Open ippsec.rocks search in browser (xdg-open / wslview / explorer.exe); the query is required                                                                                                 |
 | `nmapsweep <target>`                        | `nmap -sCV -T4 -oA nmap/<target>` into `./nmap/` (`/` and `:` each sanitized to `_`)                                                                                                           |
 | `bhce <dc> <user> <pass\|:NThash\|op://path\|-> [domain]` | BloodHound CE collection via `nxc ldap`, output to `loot/bloodhound/`                                                                                                                          |
 | `mkengagement <name>`                       | Create dated engagement workspace — creates `scope/scope.txt` first for ROE                                                                                                                    |
