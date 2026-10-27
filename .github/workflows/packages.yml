@@ -64,7 +64,7 @@ jobs:
     # owner so a fork's clock doesn't burn minutes. PRs and dispatch still run.
     if: github.event_name != 'schedule' || github.repository_owner == 'dotgibson'
     container:
-      image: kalilinux/kali-rolling@sha256:02f5d6c019e549b0f55da58e835cad5355ef1030c6b2645265a324e37dfc4acc
+      image: kalilinux/kali-rolling@sha256:ea20024e16833dab1a5337f5998602f3b81f8a38f3b0995dda272c83a1b0c1b9
     steps:
       - name: Install the checkout + check deps
         run: |
