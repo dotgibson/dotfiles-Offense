@@ -1,93 +1,78 @@
+# .github/workflows/auto-tag.yml
+# ──────────────────────────────────────────────────────────────────────────────
+# RELEASE AUTOMATION for htpx — turn a CHANGELOG bump into a tag + GitHub Release.
+#
+# htpx is the SOURCE OF TRUTH for the red<->blue paired corpus; dotfiles-Offense
+# vendors it at offensive/companion/ via git subtree. CHANGELOG.md is the version
+# source: when the first `## [vX.Y.Z]` heading names a version that has no matching
+# git tag yet, this workflow (via scripts/auto-tag.sh) creates the annotated tag and
+# publishes a GitHub Release whose body is that CHANGELOG section.
+#
+# Idempotent: pushing main again when the top version is already tagged is a no-op —
+# scripts/auto-tag.sh exits 0 without re-tagging or re-releasing. It only fails (exit
+# non-zero) on a REAL error: a tag-create/push failure, or a `gh release create` that
+# errors after the tag is on origin.
+#
+# AUTH: the built-in GITHUB_TOKEN (contents: write) is enough here — it can push a tag
+# and create a Release IN THIS REPO. The cross-repo fan-out to dotfiles-Offense is a
+# SEPARATE workflow (sync-fanout.yml) that mints a fleet GitHub App token, because the
+# built-in token cannot write to another repo.
+#
+# auto-tag.sh does READ dotfiles-Offense before it tags — the companion marker pre-flight
+# (#106). That needs no token: Offense is public, and the read is an anonymous shallow
+# clone. The cross-repo WRITE is still exclusively sync-fanout's. The checkout below is
+# unauthenticated for that clone, which is deliberate — this workflow gains no write
+# access to another repo.
+#
+# This is the FIRST link in the release chain:
+#   push CHANGELOG bump to main → auto-tag (this) pre-flights Offense's companion
+#     markers, then tags + releases vX.Y.Z
+#     → sync-fanout (workflow_run on this completing) opens the Offense sync PR.
+#
+# The pre-flight exists because the fan-out is the only thing that would otherwise catch
+# a stale marker, and it runs too late: the tag and Release are already published by the
+# time it aborts, and it opens no PR. A blocked tag is recoverable; a published one that
+# never fanned out is not.
+# ──────────────────────────────────────────────────────────────────────────────
 name: auto-tag
 
-# Cut THIS repo's own next vX.Y.Z tag (+ a GitHub Release) when its INSTALLABLE STATE
-# changes on main. Delegates to the reusable workflow in dotfiles-core — one definition
-# of the version math + tagging (scripts/auto-tag.sh): PATCH-bump by default, idempotent
-# (a no-op when HEAD is already tagged vX.Y.Z), and it tags in CI so this repo's own
-# version line stops drifting from the Core it vendors.
-#
-# EVERY PATH THIS FILTER WATCHED WAS A VENDORED SUBTREE, AND THAT WAS THE DEFECT
-# (dotgibson/dotfiles-core#696). Kali is the exception in the fleet: it carries TWO
-# vendored lines, not one — the `core/` subtree (from dotfiles-core) AND the
-# `offensive/companion/` subtree (from htpx, provenance in companion.lock, synced by
-# scripts/sync-companion.sh). The filter listed exactly those two plus companion.lock,
-# which fixed the companion half of an earlier bug (G6) and left the larger half standing:
-# a tag advanced when something Kali CONSUMES moved, and never when Kali itself did. This
-# repo's own offensive tooling, install list and bootstrap released nothing.
-#
-# Fleet-wide the shape was worse — the other eight watched `core/**` alone. Measured on
-# dotfiles-Fedora: seven Core syncs produced seven releases, and six native commits
-# produced none, so `v1.3.68` meant "68 Core syncs received", which core.lock already
-# answers precisely and offline. The release NOTES were never the problem (auto-tag.sh
-# groups Conventional Commits over the whole range since the last tag); the trigger and
-# the granularity were.
-#
-# A DENYLIST, NOT AN ALLOWLIST, on purpose. The default answer is "this changed what gets
-# installed, so cut a tag", and only what demonstrably does NOT ship is carved out. An
-# allowlist fails the way the old filter failed: add a new installable directory, forget
-# to list it, and releases silently stop. The denylist's failure mode is a spurious patch
-# tag — noisy, not wrong. `!` patterns are evaluated in order, so the exclusions below
-# override the `**` above.
 on:
   push:
     branches: [main]
     paths:
-      - '**'
-      # Docs and licence — never installed. BOTH markdown forms on purpose: GitHub
-      # documents `**.js` as matching "all .js files in the repository", which implies
-      # `**` spans directory separators — but the filter-pattern semantics are not pinned
-      # down explicitly anywhere citable, and this repo carries nested markdown. Listing
-      # both costs nothing and is correct under either reading.
-      - '!**.md'
-      - '!**/*.md'
-      - '!LICENSE'
-      # …EXCEPT that this repo INSTALLS markdown, which the blanket exclusions above
-      # would otherwise drop — the same silent-no-release defect this PR is fixing, one
-      # layer down. bootstrap.sh links `offensive/templates/` into
-      # $CONFIG/offensive/templates (via blib_link_role_layer) and `offensive/companion/`
-      # to ~/companion, and the companion's entries/red|blue/*.md ARE the htpx corpus:
-      # 218 installed .md files between them. A positive pattern AFTER a negative one
-      # re-includes, so these win.
-      - 'offensive/templates/**'
-      - 'offensive/companion/**'
-      # CI plumbing and the suite — neither is wired into $HOME by bootstrap.sh.
-      - '!.github/**'
-      - '!test/**'
-      # Author-time environments and this repo's Claude routine rail — not host config.
-      - '!.claude/**'
-      - '!.devcontainer/**'
-      # Author-time tooling config: linters, git and dependency-bot metadata.
-      - '!.editorconfig'
-      - '!.gitattributes'
-      - '!.gitignore'
-      - '!.markdownlint.jsonc'
-      - '!.shellcheckrc'
-      - '!CODEOWNERS'
-      - '!renovate.json'
-  # The third SemVer component, reachable without editing this file. `bump` has been an
-  # input of the reusable from the start and NO caller in the fleet had ever passed one, so
-  # every tag any repo could cut was a patch — a release that adds a file and forces a
-  # re-bootstrap looked identical to a typo fix. Safe to press at any time: the reusable
-  # no-ops when HEAD already carries a vX.Y.Z tag.
+      - CHANGELOG.md
+      - scripts/auto-tag.sh
+      - .github/workflows/auto-tag.yml
+  # Manual re-run (e.g. after fixing a CHANGELOG heading); same idempotent no-op
+  # when the top version is already tagged.
   workflow_dispatch:
-    inputs:
-      bump:
-        description: 'Which SemVer component to advance'
-        type: choice
-        options: [patch, minor, major]
-        default: patch
 
 permissions:
-  contents: write # the tag push + GitHub Release needs write
+  contents: write # push the tag + create the GitHub Release
 
 concurrency:
   group: auto-tag-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: false # never interrupt a tag/release mid-flight
 
 jobs:
   tag:
-    uses: dotgibson/dotfiles-core/.github/workflows/auto-tag-call.yml@v7
-    # `inputs` is empty on a push event, so this reads `patch` there and the chosen
-    # component on a dispatch. One caller, both flows.
-    with:
-      bump: ${{ inputs.bump || 'patch' }}
+    # First-party only — never tag/release from a fork. The push trigger is already
+    # pinned to `branches: [main]`; the explicit default-branch guard below also
+    # covers workflow_dispatch, which can be launched against ANY ref. We only ever
+    # cut tags/releases from the default branch.
+    if: >-
+      github.repository_owner == 'dotgibson' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history + tags: auto-tag.sh checks whether the CHANGELOG version is
+      # already tagged, and persisted credentials (checkout default) let it push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Cut the release tag + GitHub Release (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }} # gh release create needs a token
+        run: ./scripts/auto-tag.sh --push --release
