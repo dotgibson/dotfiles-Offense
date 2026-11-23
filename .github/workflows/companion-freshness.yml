@@ -53,16 +53,16 @@ jobs:
               ;;
             2)
               {
-                echo "### ⚠️ vendored offensive/companion/ is behind upstream htpx"
+                echo "### ⚠️ vendored offensive/companion/ is behind the latest htpx release"
                 echo ""
                 echo '```'
                 printf '%s\n' "$out"
                 echo '```'
                 echo ""
-                echo "Pull the companion, then review + drift-check the generated views:"
+                echo "Pull the companion at that release (the exact command is in the output above), then review + drift-check the generated views:"
                 echo ""
                 echo '```'
-                echo "scripts/sync-companion.sh"
+                echo "scripts/sync-companion.sh --ref <latest vX.Y.Z>"
                 echo "offensive/companion/gen-views.sh --check"
                 echo '```'
               } >> "$GITHUB_STEP_SUMMARY"
