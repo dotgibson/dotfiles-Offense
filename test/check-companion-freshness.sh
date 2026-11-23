@@ -118,7 +118,15 @@ TIP="$(GLR -- "$UPSTREAM" "$ref" | awk 'NR==1{print $1}')"
 # Newest RELEASE: plain vX.Y.Z tags only. A pre-release (v3.4.0-rc1) is not a release, and
 # `sort -V` would rank it above v3.4.0's final anyway. Peel an annotated tag to its commit
 # (^{}); a lightweight tag has no peeled line, so fall back to the raw object.
-REL_TAG="$(GLR --tags --refs -- "$UPSTREAM" 'v*' | sed -n 's#.*refs/tags/##p' |
+#
+# The listing's own status is checked SEPARATELY from the parse. A failed request and an
+# upstream with no releases both leave REL_TAG empty, but only the second may fall back
+# to the branch tip: falling back on a transient failure would report the very
+# main-vs-lock drift this check exists to stop reporting. (ls-remote without --exit-code
+# exits 0 when the pattern simply matches nothing.)
+TAGS="$(GLR --tags --refs -- "$UPSTREAM" 'v*')" ||
+  skip "check-companion-freshness: could not list $UPSTREAM release tags — offline/restricted?"
+REL_TAG="$(printf '%s\n' "$TAGS" | sed -n 's#.*refs/tags/##p' |
   grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)"
 
 current() {
@@ -143,22 +151,24 @@ else
   [[ "$CMP_SHA" != "$SPLIT" ]] || current "with $UPSTREAM@$REL_TAG"
 
   # Not the release commit itself: current only if the release is an ANCESTOR of what is
-  # vendored (a sync past the tag). Commits only, into a throwaway bare repo — the branch
-  # plus every tag, since a lock can sit on either.
+  # vendored (a sync past the tag). Commits only, into a throwaway bare repo — EVERY branch
+  # head plus every tag, since a lock can sit on any of them: `sync-companion.sh --ref
+  # <branch>` syncs a non-default branch without changing companion_branch, so fetching
+  # only that field's branch would call such a lock broken.
   TMPGIT="$(mktemp -d)" || {
     printf '%s%s%s check-companion-freshness: mktemp failed\n' "$c_r" "$UX_ERR" "$c_0" >&2
     exit 1
   }
   trap 'rm -rf "$TMPGIT"' EXIT
   git init -q --bare "$TMPGIT" || exit 1
-  if ! GIT_TERMINAL_PROMPT=0 git -C "$TMPGIT" fetch -q --filter=tree:0 --tags -- "$UPSTREAM" "+$ref:refs/heads/upstream" 2>/dev/null; then
+  if ! GIT_TERMINAL_PROMPT=0 git -C "$TMPGIT" fetch -q --filter=tree:0 --tags -- "$UPSTREAM" '+refs/heads/*:refs/heads/*' 2>/dev/null; then
     skip "check-companion-freshness: could not fetch $UPSTREAM history to compare against $REL_TAG — offline/restricted?"
   fi
   if ! git -C "$TMPGIT" cat-file -e "$SPLIT^{commit}" 2>/dev/null; then
-    # The vendored commit is on neither the branch nor any tag: the lock names something
-    # upstream does not have (force-pushed away, or a typo). Not drift — a broken lock.
-    printf '%s%s%s check-companion-freshness: companion_sha %s is not on %s@%s or any tag — companion.lock points at a commit upstream does not have\n' \
-      "$c_r" "$UX_ERR" "$c_0" "${SPLIT:0:12}" "$UPSTREAM" "$BRANCH" >&2
+    # The vendored commit is on no branch and no tag: the lock names something upstream
+    # does not have (force-pushed away, or a typo). Not drift — a broken lock.
+    printf '%s%s%s check-companion-freshness: companion_sha %s is not on any branch or tag of %s — companion.lock points at a commit upstream does not have\n' \
+      "$c_r" "$UX_ERR" "$c_0" "${SPLIT:0:12}" "$UPSTREAM" >&2
     exit 1
   fi
   if git -C "$TMPGIT" merge-base --is-ancestor "$CMP_SHA" "$SPLIT"; then
