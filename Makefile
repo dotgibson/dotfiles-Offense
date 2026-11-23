@@ -192,7 +192,7 @@ core-lock: ## core.lock is written by Core's fan-out, not here — explains how
 
 ## ── vendored offensive/companion/ (subtree of htpx) ──────────────────────────
 
-companion-check: ## Is the vendored companion behind upstream htpx?
+companion-check: ## Is the vendored companion behind htpx's latest release?
 	@./test/check-companion-freshness.sh
 
 companion-integrity: ## Was the vendored companion hand-edited? (tree vs companion.lock)

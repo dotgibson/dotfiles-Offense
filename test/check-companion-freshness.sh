@@ -1,27 +1,42 @@
 #!/usr/bin/env bash
-# test/check-companion-freshness.sh — is the vendored offensive/companion/ subtree BEHIND upstream?
+# test/check-companion-freshness.sh — is the vendored offensive/companion/ subtree BEHIND htpx's latest release?
 # ──────────────────────────────────────────────────────────────────────────────
 # The vendored offensive/companion/ here is a git-subtree copy of dotgibson/htpx (the
 # standalone red<->blue pentest companion; provenance in companion.lock). Nothing on
 # THIS side tracked whether that copy had fallen behind upstream — so a fix landing in
 # htpx could sit un-pulled here indefinitely. This is the consumer-side freshness
-# watcher: it asks whether the vendored commit (companion.lock's companion_sha) is now
-# BEHIND upstream's tip, i.e. there are companion updates this repo hasn't pulled. A
+# watcher: it asks whether htpx has published a RELEASE this repo has not pulled. A
 # behind result is the NUDGE to run scripts/sync-companion.sh, not a hard error in
 # normal development — so it lives in a SCHEDULED workflow.
 #
+# RELEASES, NOT THE BRANCH TIP. The companion advances on htpx release tags (htpx's
+# fan-out syncs this repo on each tag; #296/#297/#359 were all tag syncs), but this
+# watcher used to compare companion_sha against htpx `main`. htpx's main takes CI-only
+# bot commits between releases (Renovate action bumps, workflow rules) that never reach
+# the corpus, so the scheduled run stayed red for eight weeks after v3.3.0 over two such
+# commits (cleared by a sync to main in #375), and would go red again after every sync.
+# Now "current" means the newest v* release commit is the vendored commit OR an ancestor
+# of it: a lock synced past the release by hand (scripts/sync-companion.sh with no --ref
+# pulls main) is current too. Ancestry needs history, so the check fetches htpx's
+# commits only (--filter=tree:0, no trees or blobs) into a throwaway bare repo; equality
+# alone, which is all test/check-core-freshness.sh needs for core's exact release pins,
+# would call such a lock behind. With no release tags upstream it falls back to the
+# branch tip, the old behaviour.
+#
 # This mirrors test/check-core-freshness.sh (the watcher for the vendored core/
-# subtree); the only differences are the lock file (companion.lock), its field names
-# (companion_repo / companion_branch / companion_sha), and the remediation
-# (scripts/sync-companion.sh, not a raw `git subtree pull`).
+# subtree) and its newest-v*-tag lookup, but differs in the lock file (companion.lock),
+# its field names (companion_repo / companion_branch / companion_sha), the ancestry test
+# above, and the remediation (scripts/sync-companion.sh --ref <tag>, not a raw
+# `git subtree pull`).
 #
 # Exit codes (matching dotfiles-core's drift-check convention — see
 # core/scripts/update-plugins.sh --check, and test/check-core-freshness.sh):
 #   0  current, OR a graceful skip (no git, offline/restricted, not a subtree checkout)
-#   2  vendored offensive/companion/ is BEHIND upstream (drift — the nudge to sync)
+#   2  vendored offensive/companion/ is BEHIND htpx's latest release (the nudge to sync)
 #   1  a genuine hard failure (e.g. a malformed companion.lock)
 # The workflow branches on these so a skip, a drift, and a real error each render the
-# right step summary. Override the upstream/branch with COMPANION_UPSTREAM / COMPANION_BRANCH.
+# right step summary. Override the upstream/branch with COMPANION_UPSTREAM / COMPANION_BRANCH
+# (the branch is what the ancestry fetch reads, and the comparison when no release exists).
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -90,27 +105,88 @@ case "$BRANCH" in
 refs/*) ref="$BRANCH" ;;
 *) ref="refs/heads/$BRANCH" ;;
 esac
-# The upstream tip we'd be pulling. ls-remote needs no clone; GIT_TERMINAL_PROMPT=0 keeps it
-# non-interactive (never block a scheduled run waiting on a credential prompt).
-# `--` forces end-of-options: UPSTREAM is overridable (COMPANION_UPSTREAM), and
-# ls-remote would treat a leading-dash value as an option (option-injection guard).
-TIP="$(GIT_TERMINAL_PROMPT=0 git ls-remote -- "$UPSTREAM" "$ref" 2>/dev/null | awk 'NR==1{print $1}')"
+# GIT_TERMINAL_PROMPT=0 keeps every network call non-interactive (never block a scheduled
+# run on a credential prompt). `--` forces end-of-options: UPSTREAM is overridable
+# (COMPANION_UPSTREAM), and git would treat a leading-dash value as an option.
+GLR() { GIT_TERMINAL_PROMPT=0 git ls-remote "$@" 2>/dev/null; }
+
+# The branch tip doubles as the connectivity probe: empty means unreachable (or a branch
+# that does not exist), which stays a graceful skip, as before.
+TIP="$(GLR -- "$UPSTREAM" "$ref" | awk 'NR==1{print $1}')"
 [[ -n "$TIP" ]] || skip "check-companion-freshness: cannot reach $UPSTREAM ($BRANCH) — offline/restricted?"
 
-if [[ "$TIP" == "$SPLIT" ]]; then
-  printf '%s%s%s vendored offensive/companion/ is current with %s@%s (%s)\n' "$c_g" "$UX_OK" "$c_0" "$UPSTREAM" "$BRANCH" "${SPLIT:0:12}"
+# Newest RELEASE: plain vX.Y.Z tags only. A pre-release (v3.4.0-rc1) is not a release, and
+# `sort -V` would rank it above v3.4.0's final anyway. Peel an annotated tag to its commit
+# (^{}); a lightweight tag has no peeled line, so fall back to the raw object.
+#
+# The listing's own status is checked SEPARATELY from the parse. A failed request and an
+# upstream with no releases both leave REL_TAG empty, but only the second may fall back
+# to the branch tip: falling back on a transient failure would report the very
+# main-vs-lock drift this check exists to stop reporting. (ls-remote without --exit-code
+# exits 0 when the pattern simply matches nothing.)
+TAGS="$(GLR --tags --refs -- "$UPSTREAM" 'v*')" ||
+  skip "check-companion-freshness: could not list $UPSTREAM release tags — offline/restricted?"
+REL_TAG="$(printf '%s\n' "$TAGS" | sed -n 's#.*refs/tags/##p' |
+  grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)"
+
+current() {
+  printf '%s%s%s vendored offensive/companion/ is current %s (%s)\n' "$c_g" "$UX_OK" "$c_0" "$1" "${SPLIT:0:12}"
   exit 0
+}
+
+if [[ -z "$REL_TAG" ]]; then
+  # No releases upstream: the branch tip is all there is to compare against.
+  CMP_NAME="$BRANCH (no v* release tags found)"
+  CMP_SHA="$TIP"
+  [[ "$CMP_SHA" != "$SPLIT" ]] || current "with $UPSTREAM@$BRANCH"
+else
+  CMP_NAME="$REL_TAG"
+  CMP_SHA="$(GLR --tags -- "$UPSTREAM" "refs/tags/$REL_TAG^{}" | awk 'NR==1{print $1}')"
+  [[ -n "$CMP_SHA" ]] || CMP_SHA="$(GLR --tags -- "$UPSTREAM" "refs/tags/$REL_TAG" | awk 'NR==1{print $1}')"
+  if [[ -z "$CMP_SHA" ]]; then
+    printf '%s%s%s check-companion-freshness: could not resolve %s in %s despite listing it\n' \
+      "$c_r" "$UX_ERR" "$c_0" "$REL_TAG" "$UPSTREAM" >&2
+    exit 1
+  fi
+  [[ "$CMP_SHA" != "$SPLIT" ]] || current "with $UPSTREAM@$REL_TAG"
+
+  # Not the release commit itself: current only if the release is an ANCESTOR of what is
+  # vendored (a sync past the tag). Commits only, into a throwaway bare repo — EVERY branch
+  # head plus every tag, since a lock can sit on any of them: `sync-companion.sh --ref
+  # <branch>` syncs a non-default branch without changing companion_branch, so fetching
+  # only that field's branch would call such a lock broken.
+  TMPGIT="$(mktemp -d)" || {
+    printf '%s%s%s check-companion-freshness: mktemp failed\n' "$c_r" "$UX_ERR" "$c_0" >&2
+    exit 1
+  }
+  trap 'rm -rf "$TMPGIT"' EXIT
+  git init -q --bare "$TMPGIT" || exit 1
+  if ! GIT_TERMINAL_PROMPT=0 git -C "$TMPGIT" fetch -q --filter=tree:0 --tags -- "$UPSTREAM" '+refs/heads/*:refs/heads/*' 2>/dev/null; then
+    skip "check-companion-freshness: could not fetch $UPSTREAM history to compare against $REL_TAG — offline/restricted?"
+  fi
+  if ! git -C "$TMPGIT" cat-file -e "$SPLIT^{commit}" 2>/dev/null; then
+    # The vendored commit is on no branch and no tag: the lock names something upstream
+    # does not have (force-pushed away, or a typo). Not drift — a broken lock.
+    printf '%s%s%s check-companion-freshness: companion_sha %s is not on any branch or tag of %s — companion.lock points at a commit upstream does not have\n' \
+      "$c_r" "$UX_ERR" "$c_0" "${SPLIT:0:12}" "$UPSTREAM" >&2
+    exit 1
+  fi
+  if git -C "$TMPGIT" merge-base --is-ancestor "$CMP_SHA" "$SPLIT"; then
+    current "— $(git -C "$TMPGIT" rev-list --count "$CMP_SHA..$SPLIT") commit(s) past $REL_TAG, the latest htpx release"
+  fi
 fi
 
-# Behind (or diverged). Report the SHAs and how to update, then exit 2 (drift) so a
-# scheduled run surfaces it as a nudge — distinct from the exit-1 hard failures above.
-# The remediation is scripts/sync-companion.sh (which pulls htpx + bumps companion.lock),
-# then the two manual follow-ups it can't do: eyeball the diff and drift-check the views.
+# Behind. Report the SHAs and how to update, then exit 2 (drift) so a scheduled run
+# surfaces it as a nudge — distinct from the exit-1 hard failures above. The remediation
+# is scripts/sync-companion.sh pinned to the release (which pulls htpx + bumps
+# companion.lock), then the two manual follow-ups it can't do: eyeball the diff and
+# drift-check the views.
+if [[ -n "$REL_TAG" ]]; then SYNC="scripts/sync-companion.sh --ref $REL_TAG"; else SYNC="scripts/sync-companion.sh"; fi
 {
-  printf '%s%s%s vendored offensive/companion/ is behind upstream %s@%s\n' "$c_y" "$UX_WARN" "$c_0" "$UPSTREAM" "$BRANCH"
-  printf '    vendored: %s\n    upstream: %s\n' "${SPLIT:0:12}" "${TIP:0:12}"
+  printf '%s%s%s vendored offensive/companion/ is behind %s@%s\n' "$c_y" "$UX_WARN" "$c_0" "$UPSTREAM" "$CMP_NAME"
+  printf '    vendored: %s\n    upstream: %s\n' "${SPLIT:0:12}" "${CMP_SHA:0:12}"
   printf '    update:\n'
-  printf '      scripts/sync-companion.sh\n'
+  printf '      %s\n' "$SYNC"
   printf '      git diff %s -- offensive/companion   # review the pulled change\n' "${SPLIT:0:12}"
   printf '      offensive/companion/gen-views.sh --check   # regenerate + commit if it reports drift\n'
 } >&2

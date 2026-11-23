@@ -786,6 +786,18 @@ on every `companion-sync`, and the corpus is authoritative when they disagree.
 
 ### Changed
 
+- **`companion-freshness` measures the vendored companion against htpx's latest release,
+  not its `main` tip.** The companion advances on htpx release tags, but the scheduled
+  check compared against `main`, which takes CI-only bot commits between releases that
+  never reach the corpus. It stayed red for eight weeks after v3.3.0 over two of them,
+  and would have gone red again after every sync. "Current" now means the newest `vX.Y.Z`
+  release commit is the vendored commit or an ancestor of it, so a lock synced past the
+  release (as #375 did) is current too. Ancestry comes from a commits-only
+  (`--filter=tree:0`) fetch into a throwaway bare repo. A behind result names the exact
+  `scripts/sync-companion.sh --ref <tag>` to run. A `companion_sha` upstream does not have
+  is now a hard failure rather than "behind", and with no release tags upstream the check
+  falls back to the branch tip.
+
 - **`bootstrap.sh` runs on Core's bootstrap driver, `blib_main`** (dotgibson/dotfiles-core#986).
   The shared half — the flag loop, the Core symlink surface, the band-85 role stage, the
   managed `~/.zshrc`, the closing report — now runs from one definition in
